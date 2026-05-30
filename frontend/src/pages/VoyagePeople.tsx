@@ -60,7 +60,11 @@ export default function VoyagePeople({ voyage, variant, computed, finance, onAdd
   const partMap = buildPartMap(variant, computed);
   const cdbCount = Object.values(partMap).filter(r => r.cdbCount > 0).length;
 
-  const rows = voyage.peopleIds
+  // Union: people explicitly added to voyage + people assigned in crewsByLeg
+  const allPersonIds = new Set<string>(voyage.peopleIds ?? []);
+  Object.values(partMap).forEach(entry => allPersonIds.add(entry.person.id));
+
+  const rows = Array.from(allPersonIds)
     .map(id => personById(id))
     .filter((p): p is Person => !!p)
     .filter(p => !q || (p.first + ' ' + p.last + ' ' + p.license).toLowerCase().includes(q.toLowerCase()))
