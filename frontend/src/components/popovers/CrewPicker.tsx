@@ -41,15 +41,16 @@ export default function CrewPicker({ anchor, onClose, ac, legIdx, variant, voyag
     return acc;
   }, {});
 
-  // Check if a FI is present in this leg's crews (enables EP as CDB)
+  // Check if a FI is present in this leg's crews (needed for EP as CDB warning)
   const allCrewIds = Object.values(variant.crewsByLeg[legIdx] || {})
     .flatMap(c => [c.cdb, ...c.pax])
     .filter(Boolean) as string[];
   const fiPresent = allCrewIds.some(pid => personEffective(pid, variant)?.license?.includes('FI'));
 
-  // CDB list: CDB role, or EP if a FI is present in the crew
+  // CDB list: all qualified pilots (have the model in authorizedModels)
+  // EP only shown if a FI is present (aviation regulation)
   const pilots = authorized.filter(p =>
-    p.rolePref === 'CDB' || (p.rolePref === 'EP' && fiPresent)
+    p.rolePref !== 'EP' || fiPresent
   );
   const paxSeats = m.seats - 1;
 
