@@ -21,8 +21,7 @@ services:
         condition: service_healthy
     networks:
       - aeronav-net
-    ports:
-      - "127.0.0.1:3001:3001"   # bind to loopback — nginx reverse-proxies externally
+    # Port 3001 not exposed — nginx proxies /api/ internally via docker network
     restart: unless-stopped
     # Run migrations then start the server
     command: sh -c "npx prisma migrate deploy && node dist/index.js"
