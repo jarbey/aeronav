@@ -1,0 +1,1 @@
+ALTER TABLE "voyages" ADD COLUMN IF NOT EXISTS "variantOrder" TEXT[] DEFAULT ARRAY[]::TEXT[];
