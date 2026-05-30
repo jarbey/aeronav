@@ -164,7 +164,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
    * PATCH /api/auth/team/:id
    * Update a team member's name or role.
    */
-  app.patch<{ Params: { id: string }; Body: { firstName?: string; lastName?: string; role?: string } }>(
+  app.patch<{ Params: { id: string }; Body: { firstName?: string; lastName?: string; role?: string; license?: string; weightKg?: number; rolePref?: string } }>(
     "/auth/team/:id", { preHandler: requireAuth },
     async (request, reply) => {
       const dbUser = (request as typeof request & { dbUser: { id: string; aeroclubId: string } }).dbUser;
@@ -173,13 +173,48 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       });
       if (!target) return reply.status(404).send({ error: "Not Found" });
 
-      const { firstName, lastName, role } = request.body;
+      const { firstName, lastName, role, license, weightKg, rolePref } = request.body;
+      const hasPersonData = license !== undefined || weightKg !== undefined || rolePref !== undefined;
+
+      let personId = target.personId;
+
+      if (hasPersonData) {
+        if (personId) {
+          // Update existing Person
+          await prisma.person.update({
+            where: { id: personId },
+            data: {
+              ...(firstName !== undefined && { firstName: firstName.trim() }),
+              ...(lastName !== undefined && { lastName: lastName.trim() }),
+              ...(license !== undefined && { license }),
+              ...(weightKg !== undefined && { weightKg }),
+              ...(rolePref !== undefined && { rolePref }),
+            },
+          });
+        } else {
+          // Create Person and link to User
+          const person = await prisma.person.create({
+            data: {
+              firstName: (firstName ?? target.firstName).trim(),
+              lastName: (lastName ?? target.lastName).trim(),
+              aeroclubId: dbUser.aeroclubId,
+              license: license ?? "",
+              weightKg: weightKg ?? 75,
+              rolePref: rolePref ?? "PAX",
+              authorizedModels: [],
+            },
+          });
+          personId = person.id;
+        }
+      }
+
       const updated = await prisma.user.update({
         where: { id: target.id },
         data: {
           ...(firstName !== undefined && { firstName: firstName.trim() }),
           ...(lastName !== undefined && { lastName: lastName.trim() }),
           ...(role !== undefined && { role }),
+          ...(personId !== target.personId && { personId }),
         },
         include: { aeroclub: true },
       });
