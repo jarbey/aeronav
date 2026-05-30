@@ -62,9 +62,6 @@ export default function VoyageRecap({ voyage }: Props) {
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.55, marginBottom: 2 }}>Voyage</div>
           <div style={{ fontSize: 17, fontWeight: 700 }}>{voyage.title}</div>
-          <div style={{ fontSize: 12, opacity: 0.65, marginTop: 2 }}>
-            {new Date(voyage.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
-          </div>
         </div>
         <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap' }}>
           <Stat label="Vol total" value={fmtHr(totalFlightMin)} />
@@ -189,55 +186,36 @@ function VariantSection({ variantIdx, variant, computed, aircraftIds }: {
 
                 return (
                   <div key={acId} style={{
-                    padding: '8px 14px',
+                    padding: '5px 14px',
                     borderTop: acIdx > 0 ? '1px solid var(--hairline)' : undefined,
-                    display: 'grid',
-                    gridTemplateColumns: '140px 1fr 130px 70px 70px 80px',
-                    gap: '0 12px', alignItems: 'center', fontSize: 12,
+                    display: 'flex', alignItems: 'center', gap: 10, fontSize: 11,
                   }}>
-                    {/* Immat */}
-                    <div>
-                      <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: ac.color }}>{ac.reg}</div>
-                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>{model?.label ?? ac.model}</div>
-                    </div>
+                    {/* Immat (sans modèle) */}
+                    <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: ac.color, minWidth: 64, flexShrink: 0 }}>{ac.reg}</span>
 
                     {/* Équipage */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 6px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '3px 5px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
                       {cdbPerson
-                        ? <span style={{ fontSize: 10.5, padding: '1px 7px', background: 'var(--ink)', color: '#fff8df', borderRadius: 99, fontWeight: 700 }}>{cdbPerson.first} {cdbPerson.last}</span>
-                        : <span style={{ fontSize: 10.5, color: 'var(--aero-red)' }}>Sans CDB</span>}
+                        ? <span style={{ fontSize: 10.5, padding: '0 6px', background: 'var(--ink)', color: '#fff8df', borderRadius: 99, fontWeight: 700, whiteSpace: 'nowrap' }}>{cdbPerson.first} {cdbPerson.last}</span>
+                        : <span style={{ fontSize: 10.5, color: 'var(--aero-red)', whiteSpace: 'nowrap' }}>Sans CDB</span>}
                       {paxPeople.map(p => p && (
-                        <span key={p.id} style={{ fontSize: 10.5, padding: '1px 7px', background: 'var(--paper-2)', color: 'var(--ink-2)', borderRadius: 99 }}>{p.first} {p.last}</span>
+                        <span key={p.id} style={{ fontSize: 10.5, padding: '0 6px', background: 'var(--paper-2)', color: 'var(--ink-2)', borderRadius: 99, whiteSpace: 'nowrap' }}>{p.first} {p.last}</span>
                       ))}
                     </div>
 
-                    {/* TOW */}
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>TOW / MTOW</div>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 11, color: towColor(res.tow, mtow) }}>
-                        {Math.round(res.tow)}<span style={{ color: 'var(--ink-3)', fontWeight: 400 }}>/{Math.round(mtow)} kg</span>
+                    {/* TOW / MTOW · Départ · Brûlé · Restant · Durée — tout sur une ligne */}
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexShrink: 0, fontSize: 11 }} className="mono">
+                      <span style={{ color: towColor(res.tow, mtow), fontWeight: 700 }} title="TOW / MTOW">
+                        {Math.round(res.tow)}<span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>/{Math.round(mtow)}</span> kg
                       </span>
-                    </div>
-
-                    {/* Carburant départ */}
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>Départ</div>
-                      <span className="mono" style={{ fontWeight: 600 }}>{Math.round(fuelLoadL)} L</span>
-                    </div>
-
-                    {/* Brûlé */}
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>Brûlé</div>
-                      <span className="mono" style={{ fontWeight: 600 }}>{Math.round(res.burnL)} L</span>
-                    </div>
-
-                    {/* Restant */}
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>Restant</div>
-                      <span className="mono" style={{ fontWeight: 700, color: fuelLeftColor(res.fuelLeftL, model?.burnLh || 1) }}>
-                        {Math.round(res.fuelLeftL)} L
-                      </span>
-                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>{fmtHr(res.durMin)}</div>
+                      <span style={{ color: 'var(--ink-3)' }}>·</span>
+                      <span title="Carb. départ">{Math.round(fuelLoadL)} L</span>
+                      <span style={{ color: 'var(--ink-4)' }}>→</span>
+                      <span title="Brûlé">-{Math.round(res.burnL)} L</span>
+                      <span style={{ color: 'var(--ink-4)' }}>→</span>
+                      <span title="Restant" style={{ color: fuelLeftColor(res.fuelLeftL, model?.burnLh || 1), fontWeight: 700 }}>{Math.round(res.fuelLeftL)} L</span>
+                      <span style={{ color: 'var(--ink-3)' }}>·</span>
+                      <span style={{ color: 'var(--aero-red)', fontWeight: 700 }} title="Durée">{fmtHr(res.durMin)}</span>
                     </div>
                   </div>
                 );
