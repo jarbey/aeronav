@@ -272,22 +272,23 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
 
   // Referentials CRUD
   async function savePerson(p: Partial<Person> & { id?: string }): Promise<Person> {
-    let saved: Person | null = null;
-    try {
-      if (p.id) {
-        saved = await apiFetch<Person>(`/people/${p.id}`, { method: 'PATCH', body: JSON.stringify(p) });
-      } else {
-        saved = await apiFetch<Person>('/people', { method: 'POST', body: JSON.stringify(p) });
-      }
-      queryClient.invalidateQueries({ queryKey: ['people'] });
-    } catch {
-      // ignore — globals updated below regardless
+    // IDs starting with p_ are frontend-generated (never in DB) — always POST
+    const hasFrontendId = !!p.id && /^p_\d+$/.test(p.id);
+    const isNew = !p.id || hasFrontendId;
+    const body = hasFrontendId ? { ...p, id: undefined } : p;
+
+    let saved: Person;
+    if (isNew) {
+      saved = await apiFetch<Person>('/people', { method: 'POST', body: JSON.stringify(body) });
+    } else {
+      saved = await apiFetch<Person>(`/people/${p.id}`, { method: 'PATCH', body: JSON.stringify(p) });
     }
-    const full = (saved || { ...p, id: p.id || `p_${Date.now()}` }) as Person;
-    const i = PEOPLE.findIndex(x => x.id === full.id);
-    if (i >= 0) PEOPLE[i] = full; else PEOPLE.push(full);
+    // Only update globals with the real DB-assigned ID
+    queryClient.invalidateQueries({ queryKey: ['people'] });
+    const i = PEOPLE.findIndex(x => x.id === saved.id);
+    if (i >= 0) PEOPLE[i] = saved; else PEOPLE.push(saved);
     bump();
-    return full;
+    return saved;
   }
   function deletePerson(id: string) {
     const i = PEOPLE.findIndex(x => x.id === id);
@@ -314,8 +315,12 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
         return { ...v, personOverrides: next };
       });
     } else {
-      const person = await savePerson(result.person);
-      addPersonToVoyage(person.id);
+      try {
+        const person = await savePerson(result.person);
+        addPersonToVoyage(person.id);
+      } catch {
+        alert('Impossible de sauvegarder la personne en base de données. Vérifiez votre connexion et réessayez.');
+      }
     }
   }
   function removeFromVoyage(personId: string) {
@@ -345,16 +350,16 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
     if (!full.aeroclubId) full.aeroclubId = currentUser.aeroclubId;
     try {
       if (ac.id) {
-        // Existing aircraft — id is the Prisma PK (reg for seeded, cuid for new)
         await apiFetch(`/aircraft/${ac.id}`, { method: 'PATCH', body: JSON.stringify({ ...full, modelId: full.model }) });
       } else {
-        await apiFetch('/aircraft', { method: 'POST', body: JSON.stringify({ ...full, modelId: full.model }) });
+        const created = await apiFetch<AircraftType>('/aircraft', { method: 'POST', body: JSON.stringify({ ...full, modelId: full.model }) });
+        full.id = created.id; // use real DB ID
       }
       queryClient.invalidateQueries({ queryKey: ['aircraft'] });
     } catch {
-      // ignore — globals updated below regardless
+      alert('Impossible de sauvegarder l\'avion. Vérifiez votre connexion et réessayez.');
+      return;
     }
-    // Always keep globals in sync so computeLeg reads fresh data
     const i = AIRCRAFT.findIndex(x => x.id === full.id);
     if (i >= 0) AIRCRAFT[i] = full; else AIRCRAFT.push(full);
     updateActiveVoyage(v => ({
@@ -699,6 +704,11 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
       bump();
     } catch (e) {
       console.error('createVoyage: backend save failed', e);
+      // Remove the local voyage so no ghost entry stays in the list
+      const idx = VOYAGES.findIndex(v => v.id === newV.id);
+      if (idx >= 0) VOYAGES.splice(idx, 1);
+      bump();
+      alert('Impossible de créer le voyage. Vérifiez votre connexion et réessayez.');
     }
   }
   function deleteVoyageById(id: string) {
