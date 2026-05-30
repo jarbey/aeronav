@@ -61,7 +61,7 @@ export function personEffective(personId: string, variant?: Variant): PersonEffe
   return {
     ...p,
     weightKg: overrides.weightKg != null ? overrides.weightKg : p.weightKg,
-    authorizedModels: overrides.authorizedModels || p.authorizedModels,
+    authorizedModels: (overrides.authorizedModels && overrides.authorizedModels.length > 0) ? overrides.authorizedModels : p.authorizedModels,
     rolePref: overrides.rolePref || p.rolePref,
     _hasOverride: !!(overrides.weightKg != null || overrides.authorizedModels || overrides.rolePref),
     _override: overrides,

@@ -99,7 +99,7 @@ export default function VoyagePersonForm({ person, variant, onClose, onSave, onD
   const [globalWeight, setGlobalWeight] = useState(basePerson.weightKg || 75);
   const [globalAuth, setGlobalAuth] = useState<string[]>(basePerson.authorizedModels || []);
   const [voyageWeight, setVoyageWeight] = useState(existingOverride.weightKg != null ? existingOverride.weightKg : (basePerson.weightKg || 75));
-  const [voyageAuth, setVoyageAuth] = useState<string[]>(existingOverride.authorizedModels || basePerson.authorizedModels || []);
+  const [voyageAuth, setVoyageAuth] = useState<string[]>((existingOverride.authorizedModels && existingOverride.authorizedModels.length > 0) ? existingOverride.authorizedModels : (basePerson.authorizedModels || []));
 
   useEffect(() => {
     if (linkedPerson) {
