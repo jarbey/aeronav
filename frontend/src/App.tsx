@@ -557,6 +557,22 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
       };
     });
   }
+  function reverseRoute() {
+    updateActiveVariantFn(v => {
+      const route = [...v.route].reverse();
+      const stopMin = [...v.stopMin].reverse();
+      const cruiseAltFt = [...v.cruiseAltFt].reverse();
+      const crewsByLeg = [...v.crewsByLeg].reverse();
+      const fuelLoadL = [...v.fuelLoadL].reverse();
+      const bagsByLeg = [...v.bagsByLeg].reverse();
+      // Swap taxi out↔in and reverse order
+      const taxiOutMin = [...(v.taxiInMin || [])].reverse();
+      const taxiInMin  = [...(v.taxiOutMin || [])].reverse();
+      // Reverse waypoints order and direction within each leg
+      const waypoints = [...(v.waypoints || [])].reverse().map(wps => [...wps].reverse());
+      return { ...v, route, stopMin, cruiseAltFt, crewsByLeg, fuelLoadL, bagsByLeg, taxiOutMin, taxiInMin, waypoints };
+    });
+  }
   function setStopMin(routeIdx: number, mins: number | null) {
     updateActiveVariantFn(v => {
       const stopMin = [...v.stopMin]; stopMin[routeIdx] = mins;
@@ -813,6 +829,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
                   onDepartureTimeChange={setDepartureTime}
                   onWaypointsChange={setWaypoints}
                   onSplitLeg={splitLeg}
+                  onReverseRoute={reverseRoute}
                   onAddStop={(legIdx, anchor) => setEditor({ kind: 'split', legIdx, anchor })}
                   onShare={() => setShareDialogId(voyage!.id)}
                   onSettings={() => setSettingsDialogId(voyage!.id)}
@@ -821,7 +838,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
                 />
               ) : voyageSubTab === 'people' ? (
                 <VoyagePeople
-                  voyage={voyage!} variant={variant} computed={computed} finance={finance}
+                  voyage={voyage!} variant={variant} computed={computed} finance={finance} version={version}
                   onAddPerson={() => setFormEditor({ kind: 'voyagePerson', payload: { first: '', last: '', weightKg: 75, license: '', authorizedModels: [], rolePref: 'PAX' } })}
                   onEditPerson={(p) => setFormEditor({ kind: 'voyagePerson', payload: p })}
                   onRemoveFromVoyage={removeFromVoyage}

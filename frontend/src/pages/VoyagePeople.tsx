@@ -39,6 +39,7 @@ interface Props {
   variant: Variant;
   computed: VoyageResult;
   finance: FinanceResult;
+  version?: number;
   onAddPerson: () => void;
   onEditPerson: (p: Person) => void;
   onRemoveFromVoyage: (id: string) => void;
@@ -47,7 +48,8 @@ interface Props {
 type SortKey = 'nom' | 'licence' | 'modeles' | 'role' | 'present' | 'heures' | 'apayer';
 type SortDir = 'asc' | 'desc';
 
-export default function VoyagePeople({ voyage, variant, computed, finance, onAddPerson, onEditPerson, onRemoveFromVoyage }: Props) {
+export default function VoyagePeople({ voyage, variant, computed, finance, version, onAddPerson, onEditPerson, onRemoveFromVoyage }: Props) {
+  void version; // forces re-render when PEOPLE or other globals reload
   const [q, setQ] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('role');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -60,9 +62,15 @@ export default function VoyagePeople({ voyage, variant, computed, finance, onAdd
   const partMap = buildPartMap(variant, computed);
   const cdbCount = Object.values(partMap).filter(r => r.cdbCount > 0).length;
 
-  // Union: people explicitly added to voyage + people assigned in crewsByLeg
+  // Collect all person IDs from every source, without relying on PEOPLE being loaded first
   const allPersonIds = new Set<string>(voyage.peopleIds ?? []);
-  Object.values(partMap).forEach(entry => allPersonIds.add(entry.person.id));
+  // From crewsByLeg directly (doesn't require personById to succeed)
+  variant.crewsByLeg.forEach(leg => {
+    Object.values(leg).forEach((crew: { cdb: string | null; pax: string[] }) => {
+      if (crew.cdb) allPersonIds.add(crew.cdb);
+      crew.pax.forEach(pid => allPersonIds.add(pid));
+    });
+  });
 
   const rows = Array.from(allPersonIds)
     .map(id => personById(id))
