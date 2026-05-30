@@ -184,8 +184,8 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
   const variant = useMemo(() => {
     if (!voyage) return null;
     const va = activeVariant(voyage);
-    // Merge voyage-level personOverrides (takes precedence over variant-level)
-    return { ...va, personOverrides: voyage.personOverrides || va.personOverrides || {} };
+    // Merge: variant-level overrides as base, voyage-level take precedence per person key
+    return { ...va, personOverrides: { ...(va.personOverrides || {}), ...(voyage.personOverrides || {}) } };
   }, [voyage, version]);
 
   const { data: allAerodromes } = useAerodromes();
