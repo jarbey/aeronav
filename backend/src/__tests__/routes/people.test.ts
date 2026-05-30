@@ -158,6 +158,49 @@ describe('POST /api/people', () => {
 
     expect(res.statusCode).toBe(400);
   });
+
+  it('empty lastName accepted (first name only) → 201', async () => {
+    const personFirstOnly = { ...FAKE_PERSON, lastName: '' };
+    vi.mocked(prisma.person.create).mockResolvedValue(personFirstOnly as any);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/people',
+      headers: { Authorization: authHeader },
+      payload: {
+        first: 'Alice',
+        last: '',          // empty last name is now allowed
+        weightKg: 70,
+        license: '',
+        authorizedModels: [],
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.json().first).toBe('Alice');
+    expect(res.json().last).toBe('');
+  });
+
+  it('rolePref EP is accepted → 201', async () => {
+    vi.mocked(prisma.person.create).mockResolvedValue({ ...FAKE_PERSON, rolePref: 'EP' } as any);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/people',
+      headers: { Authorization: authHeader },
+      payload: {
+        first: 'Elève',
+        last: 'Pilote',
+        weightKg: 65,
+        license: '',
+        authorizedModels: [],
+        rolePref: 'EP',
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.json().rolePref).toBe('EP');
+  });
 });
 
 describe('PATCH /api/people/:id', () => {

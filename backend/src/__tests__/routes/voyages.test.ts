@@ -433,6 +433,41 @@ describe('PATCH /api/voyages/:id/variants/:variantId', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().label).toBe('Plan B');
   });
+
+  it('taxiOutMin and taxiInMin accepted → 200', async () => {
+    vi.mocked(prisma.voyage.findFirst).mockResolvedValue(FAKE_VOYAGE as any);
+    const updated = { ...FAKE_VARIANT, taxiOutMin: [10, 10], taxiInMin: [5, 5] };
+    vi.mocked(prisma.variant.update).mockResolvedValue(updated as any);
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/voyages/voy1/variants/var1',
+      headers: { Authorization: authHeader },
+      payload: {
+        taxiOutMin: [10, 10],
+        taxiInMin: [5, 5],
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('personOverrides with rolePref override → 200', async () => {
+    vi.mocked(prisma.voyage.findFirst).mockResolvedValue(FAKE_VOYAGE as any);
+    const updated = { ...FAKE_VARIANT, personOverrides: { 'p1': { rolePref: 'PAX' } } };
+    vi.mocked(prisma.variant.update).mockResolvedValue(updated as any);
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/voyages/voy1/variants/var1',
+      headers: { Authorization: authHeader },
+      payload: {
+        personOverrides: { 'p1': { rolePref: 'PAX' } },
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
 });
 
 // ─── DELETE /api/voyages/:id/variants/:variantId ──────────────────────────────

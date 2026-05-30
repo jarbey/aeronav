@@ -42,11 +42,24 @@ describe('serializeUser', () => {
     expect(result.role).toBe('Pilote');
   });
 
-  it('extra Prisma fields (createdAt, etc.) are NOT included in output', () => {
+  it('extra Prisma internal fields (createdAt, updatedAt, password) are NOT included', () => {
     const result = serializeUser(rawUser);
     expect((result as Record<string, unknown>).createdAt).toBeUndefined();
     expect((result as Record<string, unknown>).updatedAt).toBeUndefined();
     expect((result as Record<string, unknown>).password).toBeUndefined();
+  });
+
+  it('aeroclub relation IS included when present (serialized to front-end shape)', () => {
+    const result = serializeUser(rawUser);
+    const club = (result as Record<string, unknown>).aeroclub as Record<string, unknown> | undefined;
+    expect(club).toBeDefined();
+    expect(club?.id).toBe('ac-nantes');
+    expect(club?.name).toBe('ACNA');
+  });
+
+  it('aeroclub is omitted when relation is not loaded', () => {
+    const { aeroclub: _, ...userWithoutClub } = rawUser as any;
+    const result = serializeUser(userWithoutClub);
     expect((result as Record<string, unknown>).aeroclub).toBeUndefined();
   });
 
