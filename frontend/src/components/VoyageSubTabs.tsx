@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Voyage, Variant, VoyageResult, FinanceResult } from '../types';
 import type { VoyageSubTab } from '../types';
+import { personById } from '../data/mockData';
 
 interface Props {
   subTab: VoyageSubTab;
@@ -39,7 +40,8 @@ function SubTabBtn({ active, onClick, icon, label, badge }: { active: boolean; o
 }
 
 export default function VoyageSubTabs({ subTab, onSubTab, voyage, variant, finance }: Props) {
-  const participantCount = voyage.peopleIds?.length ?? 0;
+  // Only count people that actually exist in the DB (avoids ghost IDs showing stale count)
+  const participantCount = (voyage.peopleIds ?? []).filter(id => !!personById(id)).length;
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 0,
