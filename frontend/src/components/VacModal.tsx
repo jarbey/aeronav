@@ -2,8 +2,15 @@ import React, { useState } from 'react';
 import type { Aerodrome, FuelAvailability } from '../types';
 import { vacProxyUrl, useAerodromes, useUpdateAerodrome } from '../api/aerodromes';
 
+const AIRAC_REF = new Date("2025-01-23T00:00:00Z").getTime();
+const AIRAC_MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+function airacCycle(offset = 0): string {
+  const daysSince = Math.floor((Date.now() - AIRAC_REF) / 86_400_000);
+  const start = new Date(AIRAC_REF + (Math.floor(daysSince / 28) + offset) * 28 * 86_400_000);
+  return `${String(start.getUTCDate()).padStart(2,"0")}_${AIRAC_MONTHS[start.getUTCMonth()]}_${start.getUTCFullYear()}`;
+}
 const SIA_VAC_DIRECT = (icao: string) =>
-  `https://www.sia.aviation-civile.gouv.fr/dvd/aip_pdf/VAC/AD/${icao}.pdf`;
+  `https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_${airacCycle()}/Atlas-VAC/PDF_AIPparSSection/VAC/AD/AD-2.${icao}.pdf`;
 
 const FUEL_OPTIONS = ['100LL', 'Jet-A1', 'MOGAS / UL91'];
 const FUEL_COLOR: Record<string, string> = {
