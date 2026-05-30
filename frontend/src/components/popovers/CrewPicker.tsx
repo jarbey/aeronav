@@ -1,7 +1,7 @@
 import React from 'react';
 import { Popover, PopoverHeader } from './Popover';
-import type { Aircraft, Variant, CrewAssignment } from '../../types';
-import { PEOPLE, AC_MODELS, acById } from '../../data/mockData';
+import type { Aircraft, Variant, CrewAssignment, PersonEffective } from '../../types';
+import { PEOPLE, AC_MODELS, acById, personEffective } from '../../data/mockData';
 
 interface Props {
   anchor: DOMRect;
@@ -16,13 +16,22 @@ interface Props {
 export default function CrewPicker({ anchor, onClose, ac, legIdx, variant, voyagePeopleIds, onChange }: Props) {
   const m = AC_MODELS[ac.model];
   const crew: CrewAssignment = (variant.crewsByLeg[legIdx] && variant.crewsByLeg[legIdx][ac.id]) || { cdb: null, pax: [] };
+
   const voyagePeople = voyagePeopleIds.length > 0
     ? PEOPLE.filter(p => voyagePeopleIds.includes(p.id))
     : PEOPLE;
-  // CDB must be explicitly qualified for this aircraft model
-  const authorized = voyagePeople.filter(p => p.authorizedModels.includes(ac.model));
-  // PAX: any voyage member can be a passenger — no aircraft qualification required
-  const paxCandidates = voyagePeople;
+
+  // Use effective profile (voyage overrides applied, including rolePref)
+  const voyagePeopleEff: PersonEffective[] = voyagePeople
+    .map(p => personEffective(p.id, variant))
+    .filter((p): p is PersonEffective => p !== null);
+
+  // CDB candidates: qualified for this aircraft model
+  const authorized = voyagePeopleEff.filter(p => p.authorizedModels.includes(ac.model));
+
+  // PAX: any voyage member
+  const paxCandidates = voyagePeopleEff;
+
   const otherAcIds = Object.keys(variant.crewsByLeg[legIdx] || {}).filter(id => id !== ac.id);
   const otherCrews = otherAcIds.reduce<Record<string, string>>((acc, aid) => {
     const a = acById(aid);
@@ -31,7 +40,17 @@ export default function CrewPicker({ anchor, onClose, ac, legIdx, variant, voyag
     c.pax.forEach(pid => { if (a) acc[pid] = a.reg; });
     return acc;
   }, {});
-  const pilots = authorized.filter(p => p.rolePref === 'CDB');
+
+  // Check if a FI is present in this leg's crews (enables EP as CDB)
+  const allCrewIds = Object.values(variant.crewsByLeg[legIdx] || {})
+    .flatMap(c => [c.cdb, ...c.pax])
+    .filter(Boolean) as string[];
+  const fiPresent = allCrewIds.some(pid => personEffective(pid, variant)?.license?.includes('FI'));
+
+  // CDB list: CDB role, or EP if a FI is present in the crew
+  const pilots = authorized.filter(p =>
+    p.rolePref === 'CDB' || (p.rolePref === 'EP' && fiPresent)
+  );
   const paxSeats = m.seats - 1;
 
   function setCdb(pid: string | null) { onChange({ ...crew, cdb: pid }); }
@@ -61,11 +80,17 @@ export default function CrewPicker({ anchor, onClose, ac, legIdx, variant, voyag
           {pilots.length === 0 && (
             <div style={{ padding: 8, fontSize: 11, color: 'var(--aero-red)' }}>
               <i className="fa-solid fa-triangle-exclamation"/> Aucun pilote qualifié pour {m.icon}
+              {voyagePeopleEff.some(p => p.rolePref === 'EP') && !fiPresent && (
+                <span style={{ marginLeft: 6, color: 'var(--aero-amber)' }}>
+                  · Ajoutez un FI pour activer les EP comme CDB
+                </span>
+              )}
             </div>
           )}
           {pilots.map(p => {
             const sel = crew.cdb === p.id;
             const conflict = otherCrews[p.id] && otherCrews[p.id] !== ac.reg;
+            const isEP = p.rolePref === 'EP';
             return (
               <button key={p.id} onClick={() => setCdb(sel ? null : p.id)} style={{
                 width: '100%', textAlign: 'left', border: 0,
@@ -80,12 +105,19 @@ export default function CrewPicker({ anchor, onClose, ac, legIdx, variant, voyag
                 <span style={{ fontSize: 12, fontWeight: sel ? 600 : 500 }}>{p.first} {p.last}</span>
                 <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{p.weightKg}kg</span>
                 <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                  {isEP && <span className="chip warn" style={{ fontSize: 9 }}>EP</span>}
                   <span className="chip" style={{ fontSize: 9 }}>{p.license}</span>
                   {conflict && <span className="chip warn" style={{ fontSize: 9 }} title={`Sera retiré de ${otherCrews[p.id]}`}>{otherCrews[p.id]}</span>}
                 </span>
               </button>
             );
           })}
+          {crew.cdb && personEffective(crew.cdb, variant)?.rolePref === 'EP' && !fiPresent && (
+            <div style={{ padding: '4px 10px', fontSize: 10.5, color: 'var(--aero-amber)', display: 'flex', gap: 5, alignItems: 'center' }}>
+              <i className="fa-solid fa-triangle-exclamation"/>
+              EP désigné CDB — ajoutez un FI en PAX pour valider la configuration.
+            </div>
+          )}
         </div>
 
         <div style={{ padding: '10px 12px 6px' }}>
@@ -96,6 +128,7 @@ export default function CrewPicker({ anchor, onClose, ac, legIdx, variant, voyag
             const sel = crew.pax.includes(p.id);
             const full = !sel && crew.pax.length >= paxSeats;
             const conflict = otherCrews[p.id] && otherCrews[p.id] !== ac.reg;
+            const isFI = p.license?.includes('FI');
             return (
               <button key={p.id} onClick={() => togglePax(p.id)} disabled={full}
                 style={{
@@ -111,8 +144,12 @@ export default function CrewPicker({ anchor, onClose, ac, legIdx, variant, voyag
                 </span>
                 <span style={{ fontSize: 12, fontWeight: sel ? 600 : 500 }}>{p.first} {p.last}</span>
                 <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{p.weightKg}kg</span>
-                {p.rolePref === 'CDB' && <span className="chip info" style={{ fontSize: 9 }}>pilote</span>}
-                {conflict && <span className="chip warn" style={{ fontSize: 9, marginLeft: 'auto' }} title={`Sera retiré de ${otherCrews[p.id]}`}>{otherCrews[p.id]}</span>}
+                <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                  {isFI && <span className="chip info" style={{ fontSize: 9 }}>FI</span>}
+                  {p.rolePref === 'CDB' && !isFI && <span className="chip" style={{ fontSize: 9 }}>pilote</span>}
+                  {p.rolePref === 'EP' && <span className="chip warn" style={{ fontSize: 9 }}>EP</span>}
+                  {conflict && <span className="chip warn" style={{ fontSize: 9 }} title={`Sera retiré de ${otherCrews[p.id]}`}>{otherCrews[p.id]}</span>}
+                </span>
               </button>
             );
           })}
