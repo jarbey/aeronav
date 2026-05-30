@@ -85,12 +85,15 @@ export default function VoyagePersonForm({ person, variant, onClose, onSave, onD
   const [emailTouched, setEmailTouched] = useState(false);
   const matchedUser = !isNew ? linkedUserInit : (emailTouched && email ? userByEmail(email) : undefined);
   const linkedPerson = matchedUser?.personId ? personById(matchedUser.personId) : null;
+  // "locked" only when a Person record is actually linked — not just because a User account was found
+  const locked = !!linkedPerson;
   const basePerson = linkedPerson || (person as Person);
 
   const existingOverride = (variant.personOverrides && basePerson.id ? variant.personOverrides[basePerson.id] : null) || {};
 
-  const [first, setFirst] = useState(basePerson.first || '');
-  const [last, setLast] = useState(basePerson.last || '');
+  // Pre-fill name from User account when no linked Person exists yet
+  const [first, setFirst] = useState(basePerson.first || matchedUser?.first || '');
+  const [last, setLast] = useState(basePerson.last || matchedUser?.last || '');
   const [license, setLicense] = useState(basePerson.license || '');
   const [rolePref, setRolePref] = useState<'CDB' | 'PAX' | 'EP'>(basePerson.rolePref || 'PAX');
   const [globalWeight, setGlobalWeight] = useState(basePerson.weightKg || 75);
@@ -109,14 +112,17 @@ export default function VoyagePersonForm({ person, variant, onClose, onSave, onD
       const ov = (variant.personOverrides && variant.personOverrides[linkedPerson.id]) || {};
       setVoyageWeight(ov.weightKg != null ? ov.weightKg : linkedPerson.weightKg);
       setVoyageAuth(ov.authorizedModels || linkedPerson.authorizedModels);
+    } else if (matchedUser) {
+      // User found but no Person yet — pre-fill name fields
+      setFirst(matchedUser.first || '');
+      setLast(matchedUser.last || '');
     }
-  }, [linkedPerson?.id]);
+  }, [linkedPerson?.id, matchedUser?.id]);
 
   const acOptions = Object.entries(AC_MODELS).map(([k, m]) => ({
     value: k, label: m.icon + ' — ' + m.label.split(' ').slice(0, 2).join(' '),
   }));
 
-  const locked = !!matchedUser;
   const canDelete = !isNew && !matchedUser;
 
   const canSave = first.trim().length > 0; // only first name required
@@ -156,7 +162,8 @@ export default function VoyagePersonForm({ person, variant, onClose, onSave, onD
 
       <Section title="Identification" icon="fa-envelope">
         <Field label="Email" hint={
-          matchedUser ? '✓ Compte trouvé — les infos d\'identité sont synchronisées.' :
+          linkedPerson ? '✓ Compte lié — identité synchronisée.' :
+          matchedUser ? '✓ Compte trouvé — complétez le profil pilote ci-dessous.' :
           (email && emailTouched ? 'Aucun compte avec cet email — un profil libre sera créé.' :
             'Saisissez l\'email pour rechercher un compte existant.')
         }>
@@ -190,6 +197,12 @@ export default function VoyagePersonForm({ person, variant, onClose, onSave, onD
           <div style={{ padding: '8px 10px', background: '#fff7df', border: '1px solid #e6cf83', borderRadius: 4, marginBottom: 10, fontSize: 11, color: 'var(--ink-2)' }}>
             <i className="fa-solid fa-lock" style={{ marginRight: 5, color: 'var(--aero-amber)' }}/>
             <b>Prénom, nom et licence</b> sont gérés par l'utilisateur lui-même et ne sont pas modifiables ici.
+          </div>
+        )}
+        {matchedUser && !linkedPerson && (
+          <div style={{ padding: '8px 10px', background: '#e3efe6', border: '1px solid #c5dbcc', borderRadius: 4, marginBottom: 10, fontSize: 11, color: 'var(--ink-2)' }}>
+            <i className="fa-solid fa-circle-info" style={{ marginRight: 5, color: 'var(--aero-green-2)' }}/>
+            Compte trouvé mais pas encore de profil pilote. Complétez les informations ci-dessous pour créer sa fiche.
           </div>
         )}
         <Grid cols={2}>
