@@ -38,6 +38,7 @@ interface DashboardProps {
   onWaypointsChange: (legIdx: number, wps: [number, number][]) => void;
   onSplitLeg: (legIdx: number, icao: string) => void;
   onAddStop: (legIdx: number, anchor: DOMRect) => void;
+  onReverseRoute: () => void;
   onShare: () => void;
   onSettings: () => void;
   onRenameVoyage: (id: string, title: string) => void;
@@ -49,7 +50,7 @@ export default function VoyageDashboard(props: DashboardProps) {
     handleSelectAerodrome, setVacIcao,
     onReplaceLeg, onCrewEdit, onBagsEdit, onFuelEdit,
     onVariantSelect, onVariantDuplicate, onVariantDelete, onVariantRename, onVariantReorder,
-    onStopMinChange, onTaxiChange, onAltChange, onAutoAssign, onDeleteLeg, onDepartureTimeChange, onWaypointsChange, onSplitLeg, onAddStop, onShare, onSettings, onRenameVoyage, currentUser } = props;
+    onStopMinChange, onTaxiChange, onAltChange, onAutoAssign, onDeleteLeg, onDepartureTimeChange, onWaypointsChange, onSplitLeg, onAddStop, onReverseRoute, onShare, onSettings, onRenameVoyage, currentUser } = props;
 
   const voyagePanel = (
     <VoyagePanel
@@ -64,6 +65,7 @@ export default function VoyageDashboard(props: DashboardProps) {
       onStopMinChange={onStopMinChange}
       onAutoAssign={onAutoAssign}
       onDeleteLeg={onDeleteLeg}
+      onReverseRoute={onReverseRoute}
       onDepartureTimeChange={onDepartureTimeChange}
       onAddStop={onAddStop}
       onShare={onShare}
@@ -254,7 +256,7 @@ function AeroPill({ icao, onClick }: { icao: string; onClick: (e: React.MouseEve
 // --- Voyage Panel ---
 function VoyagePanel({ voyage, variant, computed, selectedLegIdx, onSelectLeg,
   onReplaceLeg, onVariantSelect, onVariantDuplicate, onVariantDelete, onVariantRename, onVariantReorder,
-  onStopMinChange, onAutoAssign, onDeleteLeg, onDepartureTimeChange, onAddStop, onShare, onSettings, onRenameVoyage, currentUser }: {
+  onStopMinChange, onAutoAssign, onDeleteLeg, onReverseRoute, onDepartureTimeChange, onAddStop, onShare, onSettings, onRenameVoyage, currentUser }: {
   voyage: Voyage; variant: Variant; computed: VoyageResult;
   selectedLegIdx: number; onSelectLeg: (i: number) => void;
   onReplaceLeg: (legIdx: number, which: 'from' | 'to', anchor: DOMRect) => void;
@@ -264,6 +266,7 @@ function VoyagePanel({ voyage, variant, computed, selectedLegIdx, onSelectLeg,
   onStopMinChange: (routeIdx: number, mins: number | null) => void;
   onAutoAssign: () => void;
   onDeleteLeg: (legIdx: number) => void;
+  onReverseRoute: () => void;
   onDepartureTimeChange: (time: string) => void;
   onAddStop: (legIdx: number, anchor: DOMRect) => void;
   onShare: () => void; onSettings: () => void;
@@ -552,7 +555,7 @@ function VoyagePanel({ voyage, variant, computed, selectedLegIdx, onSelectLeg,
           onClick={e => onAddStop(computed.legs.length - 1, (e.currentTarget as HTMLElement).getBoundingClientRect())}>
           <i className="fa-solid fa-plus"/> Ajouter une escale
         </button>
-        <button className="btn btn-sm btn-ghost" title="Inverser"><i className="fa-solid fa-shuffle"/></button>
+        <button className="btn btn-sm btn-ghost" title="Inverser la route" onClick={onReverseRoute}><i className="fa-solid fa-shuffle"/></button>
       </div>
     </aside>
   );
