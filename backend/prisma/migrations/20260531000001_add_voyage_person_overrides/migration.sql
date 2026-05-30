@@ -1,0 +1,1 @@
+ALTER TABLE "voyages" ADD COLUMN IF NOT EXISTS "personOverrides" JSONB NOT NULL DEFAULT '{}';
