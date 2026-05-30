@@ -87,12 +87,30 @@ function SectionHeader({ title, editing, onEdit, onSave }: {
   );
 }
 
+type RunwayDraft = { qfu: string; lengthM: string; surface: string };
+const SURFACES = ['Revêtue', 'Herbe', 'Stabilisée', 'Eau'];
+const ATC_OPTIONS = ['Tour', 'Tour+Approche', 'AFIS', 'A/A', 'MIL', ''];
+
 function VACSidebar({ ad }: { ad: Aerodrome }) {
   const { mutate: updateAerodrome } = useUpdateAerodrome();
 
+  const [editingInfo, setEditingInfo] = useState(false);
   const [editingFuel, setEditingFuel] = useState(false);
   const [editingTax, setEditingTax] = useState(false);
   const [editingNote, setEditingNote] = useState(false);
+
+  // Info draft state
+  const [infoDraft, setInfoDraft] = useState({
+    night: ad.night,
+    ppr: ad.ppr,
+    atc: ad.atc ?? '',
+    elevation: String(ad.elevation ?? ''),
+  });
+  const [runwaysDraft, setRunwaysDraft] = useState<RunwayDraft[]>(
+    ad.runways.length > 0
+      ? ad.runways.map(r => ({ qfu: r.qfu, lengthM: String(r.lengthM), surface: r.surface }))
+      : [{ qfu: '', lengthM: '', surface: 'Revêtue' }]
+  );
 
   function initFuelDraft(): FuelDraft {
     return Object.fromEntries(FUEL_OPTIONS.map(f => [f, {
@@ -108,6 +126,29 @@ function VACSidebar({ ad }: { ad: Aerodrome }) {
 
   function savePatch(patch: Partial<Aerodrome>) {
     updateAerodrome({ icao: ad.icao, data: patch });
+  }
+
+  function saveInfo() {
+    const elevation = parseInt(infoDraft.elevation);
+    const runways = runwaysDraft
+      .filter(r => r.qfu.trim())
+      .map(r => ({ qfu: r.qfu.trim().toUpperCase(), lengthM: parseInt(r.lengthM) || 0, surface: r.surface }));
+    savePatch({
+      night: infoDraft.night,
+      ppr: infoDraft.ppr,
+      atc: infoDraft.atc,
+      elevation: isNaN(elevation) ? ad.elevation : elevation,
+      runways,
+    });
+    setEditingInfo(false);
+  }
+
+  function patchInfo(patch: Partial<typeof infoDraft>) {
+    setInfoDraft(prev => ({ ...prev, ...patch }));
+  }
+
+  function patchRunway(i: number, patch: Partial<RunwayDraft>) {
+    setRunwaysDraft(prev => prev.map((r, idx) => idx === i ? { ...r, ...patch } : r));
   }
 
   function saveFuel() {
@@ -146,26 +187,104 @@ function VACSidebar({ ad }: { ad: Aerodrome }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
 
-      {/* Informations structurelles — lecture seule */}
+      {/* Informations opérationnelles */}
       <div className="card" style={{ padding: '12px 14px' }}>
-        <div className="cap-sm" style={{ marginBottom: 8 }}>Informations</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 6, columnGap: 10, fontSize: 12 }}>
-          <span style={{ color: 'var(--ink-3)' }}>ARP</span>
-          <span className="mono">{ad.coord[1].toFixed(4)}°N · {ad.coord[0].toFixed(4)}°{ad.coord[0] >= 0 ? 'E' : 'W'}</span>
-          <span style={{ color: 'var(--ink-3)' }}>Altitude</span>
-          <span className="mono">{ad.elevation} ft</span>
-          <span style={{ color: 'var(--ink-3)' }}>Piste</span>
-          <span className="mono">{ad.runways[0]?.qfu} · {ad.runways[0]?.lengthM} m · {ad.runways[0]?.surface}</span>
-          <span style={{ color: 'var(--ink-3)' }}>ATC</span>
-          <span>{ad.atc}</span>
-          <span style={{ color: 'var(--ink-3)' }}>Nuit</span>
-          <span>
-            {ad.night
-              ? <span className="chip ok" style={{ fontSize: 10 }}>Autorisé</span>
-              : <span className="chip" style={{ fontSize: 10 }}>Non autorisé</span>}
-            {ad.ppr && <span className="chip warn" style={{ fontSize: 10, marginLeft: 4 }}>PPR</span>}
-          </span>
-        </div>
+        <SectionHeader title="Informations" editing={editingInfo}
+          onEdit={() => {
+            setInfoDraft({ night: ad.night, ppr: ad.ppr, atc: ad.atc ?? '', elevation: String(ad.elevation ?? '') });
+            setRunwaysDraft(ad.runways.length > 0
+              ? ad.runways.map(r => ({ qfu: r.qfu, lengthM: String(r.lengthM), surface: r.surface }))
+              : [{ qfu: '', lengthM: '', surface: 'Revêtue' }]);
+            setEditingInfo(true);
+          }}
+          onSave={saveInfo}/>
+        {editingInfo ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
+            {/* Altitude */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: 'var(--ink-3)', width: 70 }}>Altitude</span>
+              <input type="number" className="input" value={infoDraft.elevation}
+                onChange={e => patchInfo({ elevation: e.target.value })}
+                style={{ flex: 1, fontSize: 12, padding: '2px 6px', fontFamily: 'var(--font-mono)' }}/>
+              <span style={{ color: 'var(--ink-3)' }}>ft</span>
+            </div>
+            {/* ATC */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: 'var(--ink-3)', width: 70 }}>ATC</span>
+              <select className="input" value={infoDraft.atc}
+                onChange={e => patchInfo({ atc: e.target.value })}
+                style={{ flex: 1, fontSize: 12, padding: '2px 6px' }}>
+                {ATC_OPTIONS.map(opt => <option key={opt} value={opt}>{opt || '—'}</option>)}
+                {!ATC_OPTIONS.includes(infoDraft.atc) && <option value={infoDraft.atc}>{infoDraft.atc}</option>}
+              </select>
+            </div>
+            {/* Nuit + PPR */}
+            <div style={{ display: 'flex', gap: 16 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                <input type="checkbox" checked={infoDraft.night} onChange={e => patchInfo({ night: e.target.checked })}
+                  style={{ accentColor: 'var(--aero-green)', width: 14, height: 14 }}/>
+                <span>VFR nuit autorisé</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                <input type="checkbox" checked={infoDraft.ppr} onChange={e => patchInfo({ ppr: e.target.checked })}
+                  style={{ accentColor: 'var(--aero-amber)', width: 14, height: 14 }}/>
+                <span>PPR</span>
+              </label>
+            </div>
+            {/* Pistes */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ color: 'var(--ink-3)' }}>Pistes</span>
+                <button className="btn btn-sm btn-ghost" style={{ marginLeft: 'auto', fontSize: 10 }}
+                  onClick={() => setRunwaysDraft(prev => [...prev, { qfu: '', lengthM: '', surface: 'Revêtue' }])}>
+                  <i className="fa-solid fa-plus"/> Ajouter
+                </button>
+              </div>
+              {runwaysDraft.map((r, i) => (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 90px 20px', gap: 4, marginBottom: 4, alignItems: 'center' }}>
+                  <input className="input" placeholder="QFU (ex: 03/21)" value={r.qfu}
+                    onChange={e => patchRunway(i, { qfu: e.target.value })}
+                    style={{ fontSize: 11, padding: '2px 5px', fontFamily: 'var(--font-mono)' }}/>
+                  <input type="number" className="input" placeholder="m" value={r.lengthM}
+                    onChange={e => patchRunway(i, { lengthM: e.target.value })}
+                    style={{ fontSize: 11, padding: '2px 5px', fontFamily: 'var(--font-mono)' }}/>
+                  <select className="input" value={r.surface}
+                    onChange={e => patchRunway(i, { surface: e.target.value })}
+                    style={{ fontSize: 11, padding: '2px 4px' }}>
+                    {SURFACES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button onClick={() => setRunwaysDraft(prev => prev.filter((_, idx) => idx !== i))}
+                    style={{ background: 'none', border: 0, cursor: 'pointer', color: 'var(--aero-red)', padding: 0, fontSize: 12 }}>
+                    <i className="fa-solid fa-xmark"/>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 6, columnGap: 10, fontSize: 12 }}>
+            <span style={{ color: 'var(--ink-3)' }}>ARP</span>
+            <span className="mono">{ad.coord[1].toFixed(4)}°N · {ad.coord[0].toFixed(4)}°{ad.coord[0] >= 0 ? 'E' : 'W'}</span>
+            <span style={{ color: 'var(--ink-3)' }}>Altitude</span>
+            <span className="mono">{ad.elevation} ft</span>
+            {ad.runways.map((r, i) => (
+              <React.Fragment key={i}>
+                <span style={{ color: 'var(--ink-3)' }}>{i === 0 ? 'Piste' : ''}</span>
+                <span className="mono">{r.qfu} · {r.lengthM} m · {r.surface}</span>
+              </React.Fragment>
+            ))}
+            {ad.runways.length === 0 && <><span style={{ color: 'var(--ink-3)' }}>Piste</span><span style={{ color: 'var(--ink-4)', fontStyle: 'italic' }}>—</span></>}
+            <span style={{ color: 'var(--ink-3)' }}>ATC</span>
+            <span>{ad.atc || '—'}</span>
+            <span style={{ color: 'var(--ink-3)' }}>Nuit</span>
+            <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {ad.night
+                ? <span className="chip ok" style={{ fontSize: 10 }}>Autorisé</span>
+                : <span className="chip" style={{ fontSize: 10 }}>Non autorisé</span>}
+              {ad.ppr && <span className="chip warn" style={{ fontSize: 10 }}>PPR</span>}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Carburant */}
