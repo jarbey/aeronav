@@ -28,8 +28,10 @@ interface DashboardProps {
   onVariantDuplicate: () => void;
   onVariantDelete: (id: string) => void;
   onVariantRename: (id: string, label: string) => void;
+  onVariantReorder: (orderedIds: string[]) => void;
   onStopMinChange: (routeIdx: number, mins: number | null) => void;
   onTaxiChange: (legIdx: number, taxiOut: number, taxiIn: number) => void;
+  onAltChange: (legIdx: number, alt: number) => void;
   onAutoAssign: () => void;
   onDeleteLeg: (legIdx: number) => void;
   onDepartureTimeChange: (time: string) => void;
@@ -46,8 +48,8 @@ export default function VoyageDashboard(props: DashboardProps) {
   const { voyage, variant, computed, selectedLeg, selectedLegIdx, onSelectLeg,
     handleSelectAerodrome, setVacIcao,
     onReplaceLeg, onCrewEdit, onBagsEdit, onFuelEdit,
-    onVariantSelect, onVariantDuplicate, onVariantDelete, onVariantRename,
-    onStopMinChange, onTaxiChange, onAutoAssign, onDeleteLeg, onDepartureTimeChange, onWaypointsChange, onSplitLeg, onAddStop, onShare, onSettings, onRenameVoyage, currentUser } = props;
+    onVariantSelect, onVariantDuplicate, onVariantDelete, onVariantRename, onVariantReorder,
+    onStopMinChange, onTaxiChange, onAltChange, onAutoAssign, onDeleteLeg, onDepartureTimeChange, onWaypointsChange, onSplitLeg, onAddStop, onShare, onSettings, onRenameVoyage, currentUser } = props;
 
   const voyagePanel = (
     <VoyagePanel
@@ -58,6 +60,7 @@ export default function VoyageDashboard(props: DashboardProps) {
       onVariantDuplicate={onVariantDuplicate}
       onVariantDelete={onVariantDelete}
       onVariantRename={onVariantRename}
+      onVariantReorder={onVariantReorder}
       onStopMinChange={onStopMinChange}
       onAutoAssign={onAutoAssign}
       onDeleteLeg={onDeleteLeg}
@@ -75,6 +78,7 @@ export default function VoyageDashboard(props: DashboardProps) {
       leg={selectedLeg} legIdx={selectedLegIdx} variant={variant}
       voyagePeopleIds={voyage.peopleIds}
       onTaxiChange={onTaxiChange}
+      onAltChange={onAltChange}
       onOpenVAC={setVacIcao}
       onCrewEdit={onCrewEdit} onBagsEdit={onBagsEdit} onFuelEdit={onFuelEdit}
     />
@@ -130,10 +134,21 @@ function MapOverlay({ variant }: { variant: Variant }) {
       <div className="card" style={{ padding: '8px 10px', pointerEvents: 'auto', maxWidth: 230 }}>
         <div className="cap-sm" style={{ marginBottom: 6 }}>Légende</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 8px', fontSize: 10.5, alignItems: 'center' }}>
-          <svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="var(--aero-red)" stroke="var(--ink)" strokeWidth="1.4"/></svg>
+          <svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="#b8323a" stroke="#0b2240" strokeWidth="1.8"/></svg>
           <span>Aérodrome de la route</span>
-          <svg width="14" height="14"><circle cx="7" cy="7" r="3.2" fill="#fffdf5" stroke="var(--ink-2)" strokeWidth="1"/></svg>
-          <span>Aérodrome (référence)</span>
+          <svg width="14" height="14">
+            <path d="M7,7 L7,2 A5,5 0 0,1 11.33,9.5Z" fill="#2468c8"/>
+            <path d="M7,7 L11.33,9.5 A5,5 0 0,1 2.67,9.5Z" fill="#2d9e5f"/>
+            <path d="M7,7 L2.67,9.5 A5,5 0 0,1 7,2Z" fill="#8e44ad"/>
+            <circle cx="7" cy="7" r="5" fill="none" stroke="#6a7a8a" strokeWidth="1"/>
+          </svg>
+          <span>Carburant disponible</span>
+          <svg width="14" height="14"><circle cx="7" cy="7" r="3" fill="#2468c8" stroke="#6a7a8a" strokeWidth="1"/></svg>
+          <span style={{ color: '#2468c8' }}>Jet-A1</span>
+          <svg width="14" height="14"><circle cx="7" cy="7" r="3" fill="#2d9e5f" stroke="#6a7a8a" strokeWidth="1"/></svg>
+          <span style={{ color: '#2d9e5f' }}>100LL</span>
+          <svg width="14" height="14"><circle cx="7" cy="7" r="3" fill="#8e44ad" stroke="#6a7a8a" strokeWidth="1"/></svg>
+          <span style={{ color: '#8e44ad' }}>MOGAS / UL91</span>
           <svg width="14" height="6"><line x1="0" y1="3" x2="14" y2="3" stroke="var(--ink)" strokeWidth="2" strokeDasharray="4 2"/></svg>
           <span>Branche de navigation</span>
         </div>
@@ -143,31 +158,56 @@ function MapOverlay({ variant }: { variant: Variant }) {
 }
 
 // --- Variant tabs inline ---
-function VariantTabsInline({ voyage, onSelect, onDuplicate, onDelete, onRename }: {
+function VariantTabsInline({ voyage, onSelect, onDuplicate, onDelete, onRename, onReorder }: {
   voyage: Voyage; onSelect: (id: string) => void; onDuplicate: () => void;
   onDelete: (id: string) => void; onRename: (id: string, label: string) => void;
+  onReorder: (orderedIds: string[]) => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  function handleDrop(targetId: string, draggedId: string) {
+    if (draggedId === targetId) return;
+    const ids = voyage.variants.map(v => v.id);
+    const fromIdx = ids.indexOf(draggedId);
+    const toIdx = ids.indexOf(targetId);
+    const next = [...ids];
+    next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, draggedId);
+    onReorder(next);
+  }
+
   return (
     <div style={{ marginTop: 4 }}>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-        <div className="cap-sm">Variantes</div>
+        <div className="cap-sm">Trajets</div>
         <button className="btn btn-sm btn-ghost" style={{ marginLeft: 'auto', fontSize: 10 }} onClick={onDuplicate}>
-          <i className="fa-solid fa-plus"/> Nouvelle
+          <i className="fa-solid fa-plus"/> Nouveau
         </button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {voyage.variants.map(v => {
+        {voyage.variants.map((v, idx) => {
           const isActive = v.id === voyage.activeVariantId;
+          const isDragOver = dragOverId === v.id;
           return (
-            <div key={v.id} style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '5px 7px',
-              border: `1px solid ${isActive ? 'var(--ink)' : 'var(--hairline-soft)'}`,
-              background: isActive ? 'var(--surface-card)' : 'transparent',
-              borderRadius: 4, cursor: 'pointer',
-            }} onClick={() => onSelect(v.id)}>
-              <span style={{ width: 20, height: 20, borderRadius: 3, background: isActive ? 'var(--ink)' : 'var(--paper-2)', color: isActive ? '#ffcf52' : 'var(--ink-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 10, flexShrink: 0 }}>{variantCode(v.id)}</span>
+            <div key={v.id}
+              draggable
+              onDragStart={e => e.dataTransfer.setData('text/plain', v.id)}
+              onDragOver={e => { e.preventDefault(); setDragOverId(v.id); }}
+              onDragLeave={() => setDragOverId(null)}
+              onDrop={e => { e.preventDefault(); setDragOverId(null); handleDrop(v.id, e.dataTransfer.getData('text/plain')); }}
+              onDragEnd={() => setDragOverId(null)}
+              onClick={() => onSelect(v.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '5px 7px',
+                border: `1px solid ${isDragOver ? 'var(--aero-blue)' : isActive ? 'var(--ink)' : 'var(--hairline-soft)'}`,
+                background: isDragOver ? 'var(--surface-2)' : isActive ? 'var(--surface-card)' : 'transparent',
+                borderRadius: 4, cursor: 'grab',
+                opacity: 1,
+              }}>
+              <i className="fa-solid fa-grip-vertical" style={{ fontSize: 8, color: 'var(--ink-4)', cursor: 'grab', flexShrink: 0 }}/>
+              <span style={{ width: 20, height: 20, borderRadius: 3, background: isActive ? 'var(--ink)' : 'var(--paper-2)', color: isActive ? '#ffcf52' : 'var(--ink-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 10, flexShrink: 0 }}>{idx + 1}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 {editingId === v.id ? (
                   <input className="input" autoFocus value={v.label}
@@ -213,13 +253,14 @@ function AeroPill({ icao, onClick }: { icao: string; onClick: (e: React.MouseEve
 
 // --- Voyage Panel ---
 function VoyagePanel({ voyage, variant, computed, selectedLegIdx, onSelectLeg,
-  onReplaceLeg, onVariantSelect, onVariantDuplicate, onVariantDelete, onVariantRename,
+  onReplaceLeg, onVariantSelect, onVariantDuplicate, onVariantDelete, onVariantRename, onVariantReorder,
   onStopMinChange, onAutoAssign, onDeleteLeg, onDepartureTimeChange, onAddStop, onShare, onSettings, onRenameVoyage, currentUser }: {
   voyage: Voyage; variant: Variant; computed: VoyageResult;
   selectedLegIdx: number; onSelectLeg: (i: number) => void;
   onReplaceLeg: (legIdx: number, which: 'from' | 'to', anchor: DOMRect) => void;
   onVariantSelect: (id: string) => void; onVariantDuplicate: () => void;
   onVariantDelete: (id: string) => void; onVariantRename: (id: string, label: string) => void;
+  onVariantReorder: (orderedIds: string[]) => void;
   onStopMinChange: (routeIdx: number, mins: number | null) => void;
   onAutoAssign: () => void;
   onDeleteLeg: (legIdx: number) => void;
@@ -296,7 +337,7 @@ function VoyagePanel({ voyage, variant, computed, selectedLegIdx, onSelectLeg,
 
         <VariantTabsInline voyage={voyage}
           onSelect={onVariantSelect} onDuplicate={onVariantDuplicate}
-          onDelete={onVariantDelete} onRename={onVariantRename}/>
+          onDelete={onVariantDelete} onRename={onVariantRename} onReorder={onVariantReorder}/>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
           <div>
@@ -372,6 +413,30 @@ function VoyagePanel({ voyage, variant, computed, selectedLegIdx, onSelectLeg,
           }).join('\n');
           const totalDur = Object.values(leg.perAc).reduce((max, p) => Math.max(max, p.durMin), 0);
           const isSel = selectedLegIdx === i;
+
+          // Compute departure and arrival times per leg
+          let depTime: string | null = null;
+          let arrTime: string | null = null;
+          if (variant.departureTime) {
+            const [h, m] = variant.departureTime.split(':').map(Number);
+            let acc = h * 60 + m;
+            for (let j = 0; j < i; j++) {
+              const dur = Object.values(computed.legs[j]?.perAc || {}).reduce((max, p) => Math.max(max, p.durMin), 0);
+              acc += dur + (variant.stopMin[j + 1] ?? 0);
+            }
+            const fmt = (v: number) => { const vn = ((v % 1440) + 1440) % 1440; return `${String(Math.floor(vn/60)).padStart(2,'0')}:${String(Math.round(vn%60)).padStart(2,'0')}`; };
+            depTime = fmt(acc);
+            arrTime = fmt(acc + totalDur);
+          }
+
+          // Fuel warning at next stop: check if any aircraft can't refuel
+          const nextStopIcao = i < computed.legs.length - 1 ? variant.route[i + 1] : null;
+          const fuelMissingAtStop = nextStopIcao
+            ? Object.entries(leg.perAc)
+                .filter(([, p]) => !p.compatFuel)
+                .map(([acId]) => acById(acId)?.reg ?? acId)
+            : [];
+
           return (
             <div key={i}>
               <div onClick={() => onSelectLeg(i)} style={{
@@ -389,8 +454,9 @@ function VoyagePanel({ voyage, variant, computed, selectedLegIdx, onSelectLeg,
                   <span onClick={e => e.stopPropagation()}>
                     <AeroPill icao={leg.toIcao} onClick={(e) => onReplaceLeg(i, 'to', (e.currentTarget as HTMLElement).getBoundingClientRect())}/>
                   </span>
-                  <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span className="mono">{fmtHr(totalDur)}</span>
+                  <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{leg.distance.toFixed(0)} NM</span>
+                    <span className="mono" style={{ fontWeight: 600 }}>{fmtHr(totalDur)}</span>
                     {variant.route.length > 2 && (
                       <button className="btn btn-sm btn-ghost" style={{ padding: '0 4px', minWidth: 0 }}
                         title="Supprimer cette branche"
@@ -400,9 +466,17 @@ function VoyagePanel({ voyage, variant, computed, selectedLegIdx, onSelectLeg,
                     )}
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: 'var(--ink-3)' }}>
-                  <span className="mono">{leg.distance.toFixed(0)} NM</span>
-                  <span className="mono">{leg.bearing.toFixed(0).padStart(3, '0')}°</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, color: 'var(--ink-3)' }}>
+                  {depTime && arrTime ? (
+                    <>
+                      <i className="fa-regular fa-clock" style={{ fontSize: 9 }}/>
+                      <span className="mono">{depTime}</span>
+                      <i className="fa-solid fa-arrow-right" style={{ fontSize: 8 }}/>
+                      <span className="mono">{arrTime}</span>
+                    </>
+                  ) : (
+                    <span style={{ fontStyle: 'italic' }}>Heure départ non définie</span>
+                  )}
                   {issues.length > 0 ? (
                     <span className="chip danger" style={{ marginLeft: 'auto', cursor: 'help' }} title={issueTooltip}>
                       <i className="fa-solid fa-triangle-exclamation"/> {issues.length} {issues.length > 1 ? 'alertes' : 'alerte'}
@@ -429,35 +503,43 @@ function VoyagePanel({ voyage, variant, computed, selectedLegIdx, onSelectLeg,
                   })}
                 </div>
               </div>
-              {i < computed.legs.length - 1 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px 4px 24px', fontSize: 10.5, color: 'var(--ink-3)' }}>
-                  <i className="fa-solid fa-gas-pump" style={{ color: variant.stopMin[i + 1] != null ? 'var(--aero-amber)' : 'var(--ink-4)' }}/>
-                  Escale à <b className="mono" style={{ color: 'var(--ink-2)' }}>{variant.route[i + 1]}</b>
-                  <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {variant.stopMin[i + 1] != null ? (
-                      <>
-                        <button className="btn btn-sm btn-ghost" style={{ padding: '0 4px', minWidth: 0 }}
-                          onClick={() => onStopMinChange(i + 1, Math.max(0, (variant.stopMin[i + 1] || 0) - 15))}>
-                          <i className="fa-solid fa-minus" style={{ fontSize: 9 }}/>
-                        </button>
-                        <span className="mono" style={{ minWidth: 36, textAlign: 'center' }}>+{variant.stopMin[i + 1]}min</span>
-                        <button className="btn btn-sm btn-ghost" style={{ padding: '0 4px', minWidth: 0 }}
-                          onClick={() => onStopMinChange(i + 1, (variant.stopMin[i + 1] || 0) + 15)}>
-                          <i className="fa-solid fa-plus" style={{ fontSize: 9 }}/>
-                        </button>
-                        <button className="btn btn-sm btn-ghost" style={{ padding: '0 4px', minWidth: 0, color: 'var(--ink-4)' }}
-                          title="Supprimer l'escale"
-                          onClick={() => onStopMinChange(i + 1, null)}>
-                          <i className="fa-solid fa-xmark" style={{ fontSize: 9 }}/>
-                        </button>
-                      </>
-                    ) : (
-                      <button className="btn btn-sm btn-ghost" style={{ fontSize: 10, color: 'var(--ink-3)' }}
-                        onClick={() => onStopMinChange(i + 1, 30)}>
-                        <i className="fa-solid fa-plus" style={{ fontSize: 9 }}/> Ajouter escale
-                      </button>
+              {nextStopIcao && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 12px 4px 24px', fontSize: 10.5, color: 'var(--ink-3)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <i className="fa-solid fa-gas-pump" style={{ color: variant.stopMin[i + 1] != null ? 'var(--aero-amber)' : 'var(--ink-4)' }}/>
+                    Escale à <b className="mono" style={{ color: 'var(--ink-2)' }}>{nextStopIcao}</b>
+                    {fuelMissingAtStop.length > 0 && (
+                      <span className="chip danger" style={{ fontSize: 9, cursor: 'help' }}
+                        title={`Carburant indisponible à ${nextStopIcao} pour : ${fuelMissingAtStop.join(', ')}`}>
+                        <i className="fa-solid fa-triangle-exclamation"/> Carb. indispo
+                      </span>
                     )}
-                  </span>
+                    <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {variant.stopMin[i + 1] != null ? (
+                        <>
+                          <button className="btn btn-sm btn-ghost" style={{ padding: '0 4px', minWidth: 0 }}
+                            onClick={() => onStopMinChange(i + 1, Math.max(0, (variant.stopMin[i + 1] || 0) - 15))}>
+                            <i className="fa-solid fa-minus" style={{ fontSize: 9 }}/>
+                          </button>
+                          <span className="mono" style={{ minWidth: 36, textAlign: 'center' }}>+{variant.stopMin[i + 1]}min</span>
+                          <button className="btn btn-sm btn-ghost" style={{ padding: '0 4px', minWidth: 0 }}
+                            onClick={() => onStopMinChange(i + 1, (variant.stopMin[i + 1] || 0) + 15)}>
+                            <i className="fa-solid fa-plus" style={{ fontSize: 9 }}/>
+                          </button>
+                          <button className="btn btn-sm btn-ghost" style={{ padding: '0 4px', minWidth: 0, color: 'var(--ink-4)' }}
+                            title="Supprimer l'escale"
+                            onClick={() => onStopMinChange(i + 1, null)}>
+                            <i className="fa-solid fa-xmark" style={{ fontSize: 9 }}/>
+                          </button>
+                        </>
+                      ) : (
+                        <button className="btn btn-sm btn-ghost" style={{ fontSize: 10, color: 'var(--ink-3)' }}
+                          onClick={() => onStopMinChange(i + 1, 30)}>
+                          <i className="fa-solid fa-plus" style={{ fontSize: 9 }}/> Ajouter escale
+                        </button>
+                      )}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
@@ -477,9 +559,10 @@ function VoyagePanel({ voyage, variant, computed, selectedLegIdx, onSelectLeg,
 }
 
 // --- Leg Detail ---
-function LegDetail({ leg, legIdx, variant, voyagePeopleIds, onTaxiChange, onOpenVAC, onCrewEdit, onBagsEdit, onFuelEdit }: {
+function LegDetail({ leg, legIdx, variant, voyagePeopleIds, onTaxiChange, onAltChange, onOpenVAC, onCrewEdit, onBagsEdit, onFuelEdit }: {
   leg: LegResult; legIdx: number; variant: Variant; voyagePeopleIds: string[];
   onTaxiChange: (legIdx: number, taxiOut: number, taxiIn: number) => void;
+  onAltChange: (legIdx: number, alt: number) => void;
   onOpenVAC: (icao: string) => void;
   onCrewEdit: (ac: Aircraft, legIdx: number, anchor: DOMRect) => void;
   onBagsEdit: (ac: Aircraft, legIdx: number, anchor: DOMRect) => void;
@@ -534,7 +617,7 @@ function LegDetail({ leg, legIdx, variant, voyagePeopleIds, onTaxiChange, onOpen
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--hairline-soft)' }}>
           <MetricCell label="Distance" value={`${leg.distance.toFixed(0)}`} unit="NM"/>
           <MetricCell label="Cap" value={`${leg.bearing.toFixed(0).padStart(3, '0')}`} unit="°"/>
-          <MetricCell label="Altitude" value={`${variant.cruiseAltFt[legIdx]}`} unit="ft"/>
+          <AltCell alt={variant.cruiseAltFt[legIdx] ?? 3500} onChange={a => onAltChange(legIdx, a)}/>
           <MetricCell label="Durée groupe" value={fmtHr(totalDurMin)} red/>
           <MetricCell label="Taxe arr." value={`${(leg.to.taxLandingEUR || 0) * Object.keys(leg.perAc).length}`} unit="€"/>
         </div>
@@ -592,6 +675,24 @@ function TaxiStepper({ label, icon, value, onChange }: { label: string; icon: st
       <span className="mono" style={{ fontSize: 12, fontWeight: 600, minWidth: 32, textAlign: 'center' }}>{value}<span style={{ fontSize: 9, color: 'var(--ink-3)', fontWeight: 500 }}>min</span></span>
       <button className="btn btn-sm btn-ghost" style={{ padding: '0 5px', minWidth: 20 }}
         onClick={() => onChange(value + STEP)}>+</button>
+    </div>
+  );
+}
+
+function AltCell({ alt, onChange }: { alt: number; onChange: (v: number) => void }) {
+  const STEP = 500;
+  return (
+    <div>
+      <div className="cap-sm">Altitude</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginTop: 1 }}>
+        <button className="btn btn-sm btn-ghost" style={{ padding: '0 3px', minWidth: 16, fontSize: 10 }}
+          onClick={() => onChange(Math.max(500, alt - STEP))}>−</button>
+        <span className="mono" style={{ fontSize: 12, fontWeight: 600, minWidth: 36, textAlign: 'center' }}>
+          {alt}<span style={{ fontSize: 9, color: 'var(--ink-3)', fontWeight: 500, marginLeft: 1 }}>ft</span>
+        </span>
+        <button className="btn btn-sm btn-ghost" style={{ padding: '0 3px', minWidth: 16, fontSize: 10 }}
+          onClick={() => onChange(alt + STEP)}>+</button>
+      </div>
     </div>
   );
 }
@@ -747,12 +848,13 @@ function Metric({ label, value, unit, cls }: { label: string; value: string; uni
 }
 
 function PersonChip({ person, isCdb }: { person: import('../types').Person; isCdb?: boolean }) {
-  const initials = (person.first[0] + person.last[0]).toUpperCase();
+  const displayName = person.last || person.first;
+  const initials = (person.first[0] + (person.last?.[0] || '')).toUpperCase();
   const colorIdx = (person.id.charCodeAt(1) % 6) + 1;
   return (
-    <span className={`person ${isCdb ? 'cdb' : ''}`} title={`${person.first} ${person.last} — ${person.weightKg} kg${isCdb ? ' (CDB)' : ''}`} style={{ cursor: 'pointer' }}>
+    <span className={`person ${isCdb ? 'cdb' : ''}`} title={`${[person.first, person.last].filter(Boolean).join(' ')} — ${person.weightKg} kg${isCdb ? ' (CDB)' : ''}`} style={{ cursor: 'pointer' }}>
       <span className="av" style={{ background: `var(--plane-${colorIdx})` }}>{initials}</span>
-      <span style={{ fontSize: 10.5 }}>{isCdb ? <b>{person.last}</b> : person.last}</span>
+      <span style={{ fontSize: 10.5 }}>{isCdb ? <b>{displayName}</b> : displayName}</span>
       <span style={{ color: 'var(--ink-3)', fontSize: 9.5 }} className="mono">{person.weightKg}</span>
     </span>
   );

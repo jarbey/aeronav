@@ -25,6 +25,7 @@ import VoyageFinance from './pages/VoyageFinance';
 import VoyageRecap from './pages/VoyageRecap';
 import AircraftPage from './pages/Aircraft';
 import AerodromesPage from './pages/Aerodromes';
+import TeamPage from './pages/Team';
 
 import AerodromePicker from './components/popovers/AerodromePicker';
 import CrewPicker from './components/popovers/CrewPicker';
@@ -84,18 +85,28 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
       ...(v as Voyage),
       aircraftIds: Array.isArray((v as Voyage).aircraftIds) ? (v as Voyage).aircraftIds : [],
       peopleIds: Array.isArray((v as Voyage).peopleIds) ? (v as Voyage).peopleIds : [],
-      variants: ((v as Voyage).variants || []).map(va => ({
-        ...va,
-        crewsByLeg: Array.isArray(va.crewsByLeg) ? va.crewsByLeg : [],
-        fuelLoadL: Array.isArray(va.fuelLoadL) ? va.fuelLoadL : [],
-        bagsByLeg: Array.isArray(va.bagsByLeg) ? va.bagsByLeg : [],
-        stopMin: Array.isArray(va.stopMin) ? va.stopMin : [],
-        cruiseAltFt: Array.isArray(va.cruiseAltFt) ? va.cruiseAltFt : [],
-        taxiOutMin: Array.isArray(va.taxiOutMin) ? va.taxiOutMin : [],
-        taxiInMin: Array.isArray(va.taxiInMin) ? va.taxiInMin : [],
-        personOverrides: va.personOverrides || {},
-        waypoints: Array.isArray(va.waypoints) ? va.waypoints : [],
-      })),
+      variants: (() => {
+        const vo = (v as Voyage).variantOrder;
+        const raw = ((v as Voyage).variants || []).map(va => ({
+          ...va,
+          crewsByLeg: Array.isArray(va.crewsByLeg) ? va.crewsByLeg : [],
+          fuelLoadL: Array.isArray(va.fuelLoadL) ? va.fuelLoadL : [],
+          bagsByLeg: Array.isArray(va.bagsByLeg) ? va.bagsByLeg : [],
+          stopMin: Array.isArray(va.stopMin) ? va.stopMin : [],
+          cruiseAltFt: Array.isArray(va.cruiseAltFt) ? va.cruiseAltFt : [],
+          taxiOutMin: Array.isArray((va as any).taxiOutMin) ? (va as any).taxiOutMin : [],
+          taxiInMin: Array.isArray((va as any).taxiInMin) ? (va as any).taxiInMin : [],
+          personOverrides: va.personOverrides || {},
+          waypoints: Array.isArray(va.waypoints) ? va.waypoints : [],
+        }));
+        if (vo && vo.length > 0) {
+          return [...raw].sort((a, b) => {
+            const ai = vo.indexOf(a.id); const bi = vo.indexOf(b.id);
+            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+          });
+        }
+        return raw;
+      })(),
     }));
     bump();
     // If the current activeVoyageId is no longer in the new data, reset to first
@@ -177,10 +188,29 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
     () => variant ? computeVoyage(variant, voyage?.aircraftIds || [], allAerodromes) : { legs: [], flightMin: 0, stopMin: 0, totalMin: 0, taxLandingTotal: 0, taxParkingTotal: 0, taxTotalEUR: 0 },
     [variant, voyage?.aircraftIds, version, allAerodromes],
   );
-  const finance = useMemo(
-    () => variant ? computeFinance(variant, voyage?.aircraftIds || [], allAerodromes) : { totals: { total: 0, flightCost: 0, taxesCost: 0, hours: 0, unassignedCost: 0 }, byPerson: {}, byAircraft: {}, items: [] },
-    [variant, voyage?.aircraftIds, version, allAerodromes],
-  );
+  const finance = useMemo(() => {
+    if (!voyage) return { totals: { total: 0, flightCost: 0, taxesCost: 0, hours: 0, unassignedCost: 0 }, byPerson: {}, byAircraft: {}, items: [] };
+    const results = voyage.variants.map(va => computeFinance(va, voyage.aircraftIds || [], allAerodromes));
+    if (results.length === 0) return { totals: { total: 0, flightCost: 0, taxesCost: 0, hours: 0, unassignedCost: 0 }, byPerson: {}, byAircraft: {}, items: [] };
+    // Merge all trajets
+    const byPerson: typeof results[0]['byPerson'] = {};
+    const byAircraft: typeof results[0]['byAircraft'] = {};
+    for (const r of results) {
+      for (const [pid, bill] of Object.entries(r.byPerson)) {
+        if (!byPerson[pid]) byPerson[pid] = { ...bill, items: [...bill.items] };
+        else { byPerson[pid].total += bill.total; byPerson[pid].hours += bill.hours; byPerson[pid].flightCost += bill.flightCost; byPerson[pid].taxesCost += bill.taxesCost; byPerson[pid].items.push(...bill.items); }
+      }
+      for (const [acId, bill] of Object.entries(r.byAircraft)) {
+        if (!byAircraft[acId]) byAircraft[acId] = { ...bill };
+        else { byAircraft[acId].total += bill.total; byAircraft[acId].hours += bill.hours; byAircraft[acId].flightCost += bill.flightCost; byAircraft[acId].taxesCost += bill.taxesCost; }
+      }
+    }
+    return {
+      items: results.flatMap(r => r.items),
+      byPerson, byAircraft,
+      totals: { total: results.reduce((s, r) => s + r.totals.total, 0), flightCost: results.reduce((s, r) => s + r.totals.flightCost, 0), taxesCost: results.reduce((s, r) => s + r.totals.taxesCost, 0), hours: results.reduce((s, r) => s + r.totals.hours, 0), unassignedCost: results.reduce((s, r) => s + r.totals.unassignedCost, 0) },
+    };
+  }, [voyage, allAerodromes, version]);
 
   // Initialise activeVoyageId if not set
   useEffect(() => {
@@ -316,7 +346,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
     try {
       if (ac.id) {
         // Existing aircraft — id is the Prisma PK (reg for seeded, cuid for new)
-        await apiFetch(`/aircraft/${ac.id}`, { method: 'PATCH', body: JSON.stringify(full) });
+        await apiFetch(`/aircraft/${ac.id}`, { method: 'PATCH', body: JSON.stringify({ ...full, modelId: full.model }) });
       } else {
         await apiFetch('/aircraft', { method: 'POST', body: JSON.stringify({ ...full, modelId: full.model }) });
       }
@@ -422,6 +452,14 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
     updateActiveVoyage(v => ({ ...v, variants: v.variants.map(x => x.id === id ? { ...x, label } : x) }));
     apiFetch(`/voyages/${activeVoyageId}/variants/${id}`, { method: 'PATCH', body: JSON.stringify({ label }) }).catch(() => {});
   }
+  function reorderVariants(orderedIds: string[]) {
+    updateActiveVoyage(v => ({
+      ...v,
+      variantOrder: orderedIds,
+      variants: orderedIds.map(id => v.variants.find(x => x.id === id)!).filter(Boolean),
+    }));
+    apiFetch(`/voyages/${activeVoyageId}`, { method: 'PATCH', body: JSON.stringify({ variantOrder: orderedIds }) }).catch(() => {});
+  }
 
   // Leg / crew / bags / fuel editing
   function replaceLegEndpoint(legIdx: number, which: 'from' | 'to', newIcao: string) {
@@ -523,6 +561,13 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
     updateActiveVariantFn(v => {
       const stopMin = [...v.stopMin]; stopMin[routeIdx] = mins;
       return { ...v, stopMin };
+    });
+  }
+  function setCruiseAlt(legIdx: number, alt: number) {
+    updateActiveVariantFn(v => {
+      const cruiseAltFt = [...v.cruiseAltFt];
+      cruiseAltFt[legIdx] = Math.max(500, alt);
+      return { ...v, cruiseAltFt };
     });
   }
   function setTaxiTimes(legIdx: number, taxiOut: number, taxiIn: number) {
@@ -718,9 +763,6 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
       <TopBar
         tab={tab} onTab={setTab}
         voyage={voyage}
-        variant={variant}
-        totals={computed}
-        finance={finance}
         currentUser={currentUser}
         onUserMenu={() => setUserMenuOpen(true)}
         version={version}
@@ -762,8 +804,10 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
                   onVariantDuplicate={duplicateVariant}
                   onVariantDelete={deleteVariant}
                   onVariantRename={renameVariant}
+                  onVariantReorder={reorderVariants}
                   onStopMinChange={setStopMin}
                   onTaxiChange={setTaxiTimes}
+                  onAltChange={setCruiseAlt}
                   onAutoAssign={runAutoAssign}
                   onDeleteLeg={deleteLeg}
                   onDepartureTimeChange={setDepartureTime}
@@ -798,6 +842,8 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
             onEditModel={(key, model) => setFormEditor({ kind: 'model', payload: { modelKey: key, model } })}
             version={version}
           />
+        ) : tab === 'team' ? (
+          <TeamPage currentUser={currentUser}/>
         ) : (
           <AerodromesPage
             onOpenVAC={setVacIcao}
