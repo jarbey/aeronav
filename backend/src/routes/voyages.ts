@@ -34,6 +34,7 @@ const voyageUpdateSchema = z.object({
   aircraftIds: z.array(z.string()).optional(),
   peopleIds: z.array(z.string()).optional(),
   variantOrder: z.array(z.string()).optional(),
+  personOverrides: z.record(z.object({ weightKg: z.number().optional(), authorizedModels: z.array(z.string()).optional(), rolePref: z.string().optional() })).optional(),
 });
 
 const variantCreateSchema = z.object({
@@ -224,6 +225,7 @@ export async function voyagesRoutes(app: FastifyInstance): Promise<void> {
       if (parsed.data.aircraftIds !== undefined) updateData.aircraftIds = parsed.data.aircraftIds;
       if (parsed.data.variantOrder !== undefined) updateData.variantOrder = parsed.data.variantOrder;
       if (parsed.data.peopleIds !== undefined) updateData.peopleIds = parsed.data.peopleIds;
+      if (parsed.data.personOverrides !== undefined) updateData.personOverrides = parsed.data.personOverrides;
 
       const updated = await prisma.voyage.update({
         where: { id: voyage.id },

@@ -85,6 +85,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
       ...(v as Voyage),
       aircraftIds: Array.isArray((v as Voyage).aircraftIds) ? (v as Voyage).aircraftIds : [],
       peopleIds: Array.isArray((v as Voyage).peopleIds) ? (v as Voyage).peopleIds : [],
+      personOverrides: (v as Voyage).personOverrides || {},
       variants: (() => {
         const vo = (v as Voyage).variantOrder;
         const raw = ((v as Voyage).variants || []).map(va => ({
@@ -180,7 +181,12 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
     [activeVoyageId, version],
   );
 
-  const variant = useMemo(() => voyage ? activeVariant(voyage) : null, [voyage, version]);
+  const variant = useMemo(() => {
+    if (!voyage) return null;
+    const va = activeVariant(voyage);
+    // Merge voyage-level personOverrides (takes precedence over variant-level)
+    return { ...va, personOverrides: voyage.personOverrides || va.personOverrides || {} };
+  }, [voyage, version]);
 
   const { data: allAerodromes } = useAerodromes();
 
@@ -302,18 +308,26 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
     updateVoyage(voyage.id, v => ({ ...v, peopleIds: newPeopleIds }));
     apiFetch(`/voyages/${voyage.id}`, { method: 'PATCH', body: JSON.stringify({ peopleIds: newPeopleIds }) }).catch(() => {});
   }
+  function savePersonOverrideToVoyage(personId: string, override: PersonOverride | null) {
+    if (!activeVoyageId) return;
+    updateVoyage(activeVoyageId, v => {
+      const next = { ...(v.personOverrides || {}) };
+      if (!override || Object.keys(override).length === 0) delete next[personId];
+      else next[personId] = override;
+      return { ...v, personOverrides: next };
+    });
+    const updatedVoyage = VOYAGES.find(v => v.id === activeVoyageId);
+    if (updatedVoyage) {
+      apiFetch(`/voyages/${activeVoyageId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ personOverrides: updatedVoyage.personOverrides }),
+      }).catch(() => {});
+    }
+  }
   async function saveVoyagePerson(result: { kind: 'linked'; personId: string; override: PersonOverride } | { kind: 'standalone'; person: Person }) {
     if (result.kind === 'linked') {
       addPersonToVoyage(result.personId);
-      updateActiveVariantFn(v => {
-        const next = { ...(v.personOverrides || {}) };
-        if (Object.keys(result.override).length === 0) {
-          delete next[result.personId];
-        } else {
-          next[result.personId] = result.override;
-        }
-        return { ...v, personOverrides: next };
-      });
+      savePersonOverrideToVoyage(result.personId, Object.keys(result.override).length > 0 ? result.override : null);
     } else {
       try {
         const person = await savePerson(result.person);
@@ -328,22 +342,25 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
       const newPeopleIds = voyage.peopleIds.filter(id => id !== personId);
       updateVoyage(voyage.id, v => ({ ...v, peopleIds: newPeopleIds }));
       apiFetch(`/voyages/${voyage.id}`, { method: 'PATCH', body: JSON.stringify({ peopleIds: newPeopleIds }) }).catch(() => {});
+      savePersonOverrideToVoyage(personId, null);
     }
-    updateActiveVariantFn(v => {
-      const next = { ...(v.personOverrides || {}) };
-      delete next[personId];
-      const crewsByLeg = v.crewsByLeg.map(leg => {
-        const copy: Record<string, CrewAssignment> = {};
-        Object.entries(leg).forEach(([acId, crew]) => {
-          copy[acId] = {
-            cdb: crew.cdb === personId ? null : crew.cdb,
-            pax: (crew.pax || []).filter(pid => pid !== personId),
-          };
-        });
-        return copy;
-      });
-      return { ...v, personOverrides: next, crewsByLeg };
-    });
+    // Remove from all variants' crewsByLeg
+    updateActiveVoyage(v => ({
+      ...v,
+      variants: v.variants.map(va => ({
+        ...va,
+        crewsByLeg: va.crewsByLeg.map(leg => {
+          const copy: Record<string, CrewAssignment> = {};
+          Object.entries(leg).forEach(([acId, crew]) => {
+            copy[acId] = {
+              cdb: crew.cdb === personId ? null : crew.cdb,
+              pax: (crew.pax || []).filter(pid => pid !== personId),
+            };
+          });
+          return copy;
+        }),
+      })),
+    }));
   }
   async function saveAircraft(ac: Partial<AircraftType> & { reg?: string }) {
     const full = { ...ac } as AircraftType;

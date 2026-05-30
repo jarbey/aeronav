@@ -142,6 +142,7 @@ export interface Voyage {
   aircraftIds: string[];
   peopleIds: string[];
   variantOrder?: string[];
+  personOverrides?: Record<string, PersonOverride>;
 }
 
 // Calculation output types
