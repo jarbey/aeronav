@@ -62,13 +62,14 @@ export default function VoyagePeople({ voyage, variant, computed, finance, versi
   const partMap = buildPartMap(variant, computed);
   const cdbCount = Object.values(partMap).filter(r => r.cdbCount > 0).length;
 
-  // Collect all person IDs from every source, without relying on PEOPLE being loaded first
+  // Collect all person IDs from every source across ALL variants (Finance sums all variants too)
   const allPersonIds = new Set<string>(voyage.peopleIds ?? []);
-  // From crewsByLeg directly (doesn't require personById to succeed)
-  variant.crewsByLeg.forEach(leg => {
-    Object.values(leg).forEach((crew: { cdb: string | null; pax: string[] }) => {
-      if (crew.cdb) allPersonIds.add(crew.cdb);
-      crew.pax.forEach(pid => allPersonIds.add(pid));
+  voyage.variants.forEach(va => {
+    va.crewsByLeg.forEach(leg => {
+      Object.values(leg).forEach((crew: { cdb: string | null; pax: string[] }) => {
+        if (crew.cdb) allPersonIds.add(crew.cdb);
+        crew.pax.forEach(pid => allPersonIds.add(pid));
+      });
     });
   });
 
