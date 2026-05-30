@@ -30,7 +30,7 @@ services:
   frontend:
     image: ghcr.io/${GITHUB_REPOSITORY}/aeronav-frontend:latest
     ports:
-      - "80:80"
+      - "8880:80"
     depends_on:
       - backend
     networks:
