@@ -13,14 +13,14 @@ function getDbUser(request: Parameters<typeof requireAuth>[0]): AuthedUser {
 
 // Accept both frontend (first/last) and internal (firstName/lastName) naming
 const personBodySchema = z.object({
-  firstName: z.string().min(1).optional(),
-  lastName: z.string().min(1).optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
   first: z.string().min(1).optional(),
-  last: z.string().min(1).optional(),
+  last: z.string().optional(),
   weightKg: z.number().positive(),
   license: z.string(),
   authorizedModels: z.array(z.string()).default([]),
-  rolePref: z.enum(["CDB", "PAX"]).optional(),
+  rolePref: z.enum(["CDB", "PAX", "EP"]).optional(),
 }).transform(d => ({
   firstName: d.firstName ?? d.first ?? '',
   lastName: d.lastName ?? d.last ?? '',
@@ -31,14 +31,14 @@ const personBodySchema = z.object({
 }));
 
 const personUpdateSchema = z.object({
-  firstName: z.string().min(1).optional(),
-  lastName: z.string().min(1).optional(),
-  first: z.string().min(1).optional(),
-  last: z.string().min(1).optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  first: z.string().optional(),
+  last: z.string().optional(),
   weightKg: z.number().positive().optional(),
   license: z.string().optional(),
   authorizedModels: z.array(z.string()).optional(),
-  rolePref: z.enum(["CDB", "PAX"]).optional(),
+  rolePref: z.enum(["CDB", "PAX", "EP"]).optional(),
 }).transform(d => ({
   ...(d.firstName !== undefined || d.first !== undefined
     ? { firstName: d.firstName ?? d.first } : {}),

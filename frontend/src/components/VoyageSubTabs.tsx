@@ -49,7 +49,7 @@ export default function VoyageSubTabs({ subTab, onSubTab, voyage, variant, finan
     }}>
       <SubTabBtn active={subTab === 'map'} onClick={() => onSubTab('map')} icon="fa-map" label="Carte & branches"/>
       <SubTabBtn active={subTab === 'people'} onClick={() => onSubTab('people')} icon="fa-users" label="Personnes" badge={participantCount}/>
-      <SubTabBtn active={subTab === 'finance'} onClick={() => onSubTab('finance')} icon="fa-coins" label="Finance" badge={`${Math.round(finance.totals.total)}€`}/>
+      <SubTabBtn active={subTab === 'finance'} onClick={() => onSubTab('finance')} icon="fa-coins" label="Finance" badge={`${new Intl.NumberFormat('fr-FR').format(Math.round(finance.totals.total))}€`}/>
       <SubTabBtn active={subTab === 'recap'} onClick={() => onSubTab('recap')} icon="fa-list-check" label="Récapitulatif"/>
       <div style={{ flex: 1 }}/>
       <span style={{ fontSize: 11, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 6 }}>

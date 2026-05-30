@@ -124,4 +124,88 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     });
     return reply.send(users.map(serializeUser));
   });
+
+  /**
+   * POST /api/auth/team
+   * Add a new member to the current user's aeroclub (no password required).
+   */
+  app.post<{ Body: { email: string; firstName: string; lastName: string; role?: string } }>(
+    "/auth/team", { preHandler: requireAuth },
+    async (request, reply) => {
+      const dbUser = (request as typeof request & { dbUser: { id: string; aeroclubId: string } }).dbUser;
+      const { email, firstName, lastName, role = "Pilote" } = request.body;
+
+      if (!email || !firstName || !lastName) {
+        return reply.status(400).send({ error: "Bad Request", message: "email, firstName and lastName are required" });
+      }
+
+      const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+      if (existing) {
+        return reply.status(409).send({ error: "Conflict", message: "An account with this email already exists" });
+      }
+
+      const user = await prisma.user.create({
+        data: {
+          email: email.trim().toLowerCase(),
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          role,
+          aeroclubId: dbUser.aeroclubId,
+          provider: "local",
+        },
+        include: { aeroclub: true },
+      });
+
+      return reply.status(201).send(serializeUser(user));
+    }
+  );
+
+  /**
+   * PATCH /api/auth/team/:id
+   * Update a team member's name or role.
+   */
+  app.patch<{ Params: { id: string }; Body: { firstName?: string; lastName?: string; role?: string } }>(
+    "/auth/team/:id", { preHandler: requireAuth },
+    async (request, reply) => {
+      const dbUser = (request as typeof request & { dbUser: { id: string; aeroclubId: string } }).dbUser;
+      const target = await prisma.user.findFirst({
+        where: { id: request.params.id, aeroclubId: dbUser.aeroclubId },
+      });
+      if (!target) return reply.status(404).send({ error: "Not Found" });
+
+      const { firstName, lastName, role } = request.body;
+      const updated = await prisma.user.update({
+        where: { id: target.id },
+        data: {
+          ...(firstName !== undefined && { firstName: firstName.trim() }),
+          ...(lastName !== undefined && { lastName: lastName.trim() }),
+          ...(role !== undefined && { role }),
+        },
+        include: { aeroclub: true },
+      });
+
+      return reply.send(serializeUser(updated));
+    }
+  );
+
+  /**
+   * DELETE /api/auth/team/:id
+   * Remove a member from the aeroclub (can't remove yourself).
+   */
+  app.delete<{ Params: { id: string } }>(
+    "/auth/team/:id", { preHandler: requireAuth },
+    async (request, reply) => {
+      const dbUser = (request as typeof request & { dbUser: { id: string; aeroclubId: string } }).dbUser;
+      if (request.params.id === dbUser.id) {
+        return reply.status(400).send({ error: "Bad Request", message: "You cannot remove yourself" });
+      }
+      const target = await prisma.user.findFirst({
+        where: { id: request.params.id, aeroclubId: dbUser.aeroclubId },
+      });
+      if (!target) return reply.status(404).send({ error: "Not Found" });
+
+      await prisma.user.delete({ where: { id: target.id } });
+      return reply.status(204).send();
+    }
+  );
 }

@@ -44,7 +44,7 @@ export default function PersonForm({ person, onClose, onSave, onDelete }: Props)
           </Field>
           <Field label="Rôle préférentiel">
             <ChipSelect multi={false}
-              options={[{ value: 'CDB', label: 'CDB' }, { value: 'PAX', label: 'PAX' }]}
+              options={[{ value: 'CDB', label: 'CDB' }, { value: 'PAX', label: 'PAX' }, { value: 'EP', label: 'Élève Pilote (EP)' }]}
               value={draft.rolePref || 'PAX'}
               onChange={v => set('rolePref', v as 'CDB' | 'PAX')}/>
           </Field>

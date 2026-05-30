@@ -1,7 +1,69 @@
-import React, { useState, useEffect } from 'react';
-import type { Person, Variant } from '../../types';
-import { userForPerson, userByEmail, personById, aeroclubById, AC_MODELS } from '../../data/mockData';
+import React, { useState, useEffect, useRef } from 'react';
+import type { Person, Variant, User } from '../../types';
+import { userForPerson, userByEmail, personById, aeroclubById, AC_MODELS, USERS } from '../../data/mockData';
 import { Drawer, Field, Grid, Section, ChipSelect } from './Drawer';
+
+function MemberAutocomplete({ value, onChange, disabled, autoFocus }: {
+  value: string; onChange: (email: string) => void; disabled?: boolean; autoFocus?: boolean;
+}) {
+  const [query, setQuery] = useState(value);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setQuery(value); }, [value]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const suggestions = query.trim()
+    ? USERS.filter(u => {
+        const q = query.toLowerCase();
+        return `${u.first} ${u.last}`.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+      }).slice(0, 8)
+    : [];
+
+  function select(u: User) { onChange(u.email); setQuery(u.email); setOpen(false); }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <input type="text" className="input" autoFocus={autoFocus} disabled={disabled}
+          placeholder="Nom, prénom ou email…" value={query}
+          onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          style={{ paddingRight: 28 }}/>
+        {query && !disabled && (
+          <button onClick={() => { onChange(''); setQuery(''); }}
+            style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 0, cursor: 'pointer', color: 'var(--ink-3)', padding: 2 }}>
+            <i className="fa-solid fa-xmark" style={{ fontSize: 11 }}/>
+          </button>
+        )}
+      </div>
+      {open && suggestions.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--paper)', border: '1px solid var(--hairline)', borderTop: 0, borderRadius: '0 0 4px 4px', boxShadow: '0 6px 16px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto' }}>
+          {suggestions.map(u => (
+            <div key={u.id} onMouseDown={() => select(u)}
+              style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}>
+              <span style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: `var(--plane-${(u.id.charCodeAt(1) % 6) + 1})`, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11 }}>
+                {(u.first[0] + (u.last?.[0] ?? '')).toUpperCase()}
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600 }}>{u.first} {u.last}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
+              </div>
+              <span className={`chip ${u.role === 'Admin' ? 'info' : ''}`} style={{ fontSize: 9 }}>{u.role}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type SaveResult =
   | { kind: 'linked'; personId: string; override: { weightKg?: number; authorizedModels?: string[] } }
@@ -30,7 +92,7 @@ export default function VoyagePersonForm({ person, variant, onClose, onSave, onD
   const [first, setFirst] = useState(basePerson.first || '');
   const [last, setLast] = useState(basePerson.last || '');
   const [license, setLicense] = useState(basePerson.license || '');
-  const [rolePref, setRolePref] = useState<'CDB' | 'PAX'>(basePerson.rolePref || 'PAX');
+  const [rolePref, setRolePref] = useState<'CDB' | 'PAX' | 'EP'>(basePerson.rolePref || 'PAX');
   const [globalWeight, setGlobalWeight] = useState(basePerson.weightKg || 75);
   const [globalAuth, setGlobalAuth] = useState<string[]>(basePerson.authorizedModels || []);
   const [voyageWeight, setVoyageWeight] = useState(existingOverride.weightKg != null ? existingOverride.weightKg : (basePerson.weightKg || 75));
@@ -57,11 +119,15 @@ export default function VoyagePersonForm({ person, variant, onClose, onSave, onD
   const locked = !!matchedUser;
   const canDelete = !isNew && !matchedUser;
 
+  const canSave = first.trim().length > 0; // only first name required
+
   function handleSave() {
+    if (!canSave) return;
     if (matchedUser) {
-      const override: { weightKg?: number; authorizedModels?: string[] } = {};
+      const override: { weightKg?: number; authorizedModels?: string[]; rolePref?: 'CDB' | 'PAX' | 'EP' } = {};
       if (voyageWeight !== basePerson.weightKg) override.weightKg = voyageWeight;
       if (JSON.stringify(voyageAuth) !== JSON.stringify(basePerson.authorizedModels)) override.authorizedModels = voyageAuth;
+      if (rolePref !== basePerson.rolePref) override.rolePref = rolePref;
       onSave({ kind: 'linked', personId: basePerson.id, override });
     } else {
       onSave({
@@ -78,12 +144,13 @@ export default function VoyagePersonForm({ person, variant, onClose, onSave, onD
 
   return (
     <Drawer
-      title={isNew ? 'Ajouter une personne au voyage' : `Modifier ${basePerson.first} ${basePerson.last}`}
+      title={isNew ? 'Ajouter une personne au voyage' : `Modifier ${[basePerson.first, basePerson.last].filter(Boolean).join(' ')}`}
       subtitle={matchedUser
         ? `Compte ${aeroclubById(matchedUser.aeroclubId)?.code || ''} · ${matchedUser.email}`
         : (isNew ? 'Inviter ou créer un nouveau profil' : 'Profil libre (non lié à un compte)')}
       onClose={onClose}
       onSave={handleSave}
+      saveLabel={canSave ? 'Enregistrer' : 'Prénom requis'}
       onDelete={onDelete}
       canDelete={canDelete}>
 
@@ -93,17 +160,17 @@ export default function VoyagePersonForm({ person, variant, onClose, onSave, onD
           (email && emailTouched ? 'Aucun compte avec cet email — un profil libre sera créé.' :
             'Saisissez l\'email pour rechercher un compte existant.')
         }>
-          <div style={{ position: 'relative' }}>
-            <input type="email" className="input"
-              placeholder="prenom.nom@aero-club.fr"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setEmailTouched(true); }}
-              autoFocus={isNew}
-              disabled={!isNew && !!linkedUserInit}
-              style={{ paddingRight: 30 }}/>
-            {matchedUser && <i className="fa-solid fa-check-circle" style={{ position: 'absolute', right: 8, top: 9, color: 'var(--aero-green)' }}/>}
-            {!matchedUser && email && emailTouched && <i className="fa-solid fa-circle-plus" style={{ position: 'absolute', right: 8, top: 9, color: 'var(--aero-amber)' }}/>}
-          </div>
+          <MemberAutocomplete
+            value={email}
+            autoFocus={isNew}
+            disabled={!isNew && !!linkedUserInit}
+            onChange={v => { setEmail(v); setEmailTouched(true); }}
+          />
+          {matchedUser && (
+            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--aero-green-2)', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <i className="fa-solid fa-check-circle"/> Membre trouvé
+            </div>
+          )}
         </Field>
         {matchedUser && (
           <div style={{ padding: '10px 12px', background: '#e3efe6', border: '1px solid #c5dbcc', borderRadius: 4, marginTop: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -126,32 +193,42 @@ export default function VoyagePersonForm({ person, variant, onClose, onSave, onD
           </div>
         )}
         <Grid cols={2}>
-          <Field label="Prénom">
-            <input className="input" value={first} disabled={locked} onChange={e => setFirst(e.target.value)}/>
+          <Field label="Prénom *">
+            <input className="input" value={first} disabled={locked} onChange={e => setFirst(e.target.value)} placeholder="Prénom"/>
           </Field>
-          <Field label="Nom">
-            <input className="input" value={last} disabled={locked} onChange={e => setLast(e.target.value)}/>
+          <Field label="Nom" hint="Optionnel">
+            <input className="input" value={last} disabled={locked} onChange={e => setLast(e.target.value)} placeholder="Nom de famille"/>
           </Field>
         </Grid>
         <Grid cols={2}>
           <Field label="Licence" hint={locked ? 'Saisie par l\'utilisateur' : 'PPL, LAPL, …'}>
             <input className="input" value={license} disabled={locked} onChange={e => setLicense(e.target.value)}/>
           </Field>
-          <Field label="Rôle préférentiel">
-            <ChipSelect multi={false}
-              options={[{ value: 'CDB', label: 'CDB' }, { value: 'PAX', label: 'PAX' }]}
-              value={rolePref}
-              onChange={v => !locked && setRolePref(v as 'CDB' | 'PAX')}/>
-          </Field>
+          {!locked && (
+            <Field label="Rôle préférentiel">
+              <ChipSelect multi={false}
+                options={[{ value: 'CDB', label: 'CDB' }, { value: 'PAX', label: 'PAX' }, { value: 'EP', label: 'Élève Pilote (EP)' }]}
+                value={rolePref}
+                onChange={v => setRolePref(v as 'CDB' | 'PAX' | 'EP')}/>
+            </Field>
+          )}
         </Grid>
       </Section>
 
       <Section title="Pour ce voyage" icon="fa-route">
         {locked && (
-          <div style={{ padding: '8px 10px', background: '#d8e6f3', border: '1px solid #b9d0e6', borderRadius: 4, marginBottom: 10, fontSize: 11, color: 'var(--aero-blue-2)' }}>
-            <i className="fa-solid fa-circle-info" style={{ marginRight: 5 }}/>
-            Le <b>poids et les avions autorisés</b> ci-dessous ne s'appliquent qu'à <b>ce voyage</b> ; le profil global n'est pas modifié.
-          </div>
+          <>
+            <div style={{ padding: '8px 10px', background: '#d8e6f3', border: '1px solid #b9d0e6', borderRadius: 4, marginBottom: 10, fontSize: 11, color: 'var(--aero-blue-2)' }}>
+              <i className="fa-solid fa-circle-info" style={{ marginRight: 5 }}/>
+              Le <b>rôle, poids et avions autorisés</b> ci-dessous ne s'appliquent qu'à <b>ce voyage</b> ; le profil global n'est pas modifié.
+            </div>
+            <Field label="Rôle pour ce voyage">
+              <ChipSelect multi={false}
+                options={[{ value: 'CDB', label: 'CDB (pilote)' }, { value: 'PAX', label: 'PAX (passager)' }, { value: 'EP', label: 'Élève Pilote (EP)' }]}
+                value={rolePref}
+                onChange={v => setRolePref(v as 'CDB' | 'PAX' | 'EP')}/>
+            </Field>
+          </>
         )}
         <Field label={locked ? 'Poids pour ce voyage' : 'Poids'}
           hint={locked && voyageWeight !== basePerson.weightKg ? `Profil global : ${basePerson.weightKg} kg — surchargé à ${voyageWeight} kg` : 'Pour le devis de masse'}>

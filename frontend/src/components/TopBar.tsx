@@ -1,6 +1,6 @@
 import React from 'react';
-import type { Voyage, Variant, VoyageResult, FinanceResult, User } from '../types';
-import { voyagesForUser, aircraftForUser, aeroclubById, fmtHr } from '../data/mockData';
+import type { Voyage, User } from '../types';
+import { voyagesForUser, aircraftForUser, aeroclubById } from '../data/mockData';
 import { useAerodromes } from '../api/aerodromes';
 import { UserAvatar } from './UserAvatar';
 import type { AppTab } from '../types';
@@ -9,15 +9,12 @@ interface TopBarProps {
   tab: AppTab;
   onTab: (tab: AppTab) => void;
   voyage: Voyage | null;
-  variant: Variant | null;
-  totals: Pick<VoyageResult, 'totalMin'>;
-  finance: Pick<FinanceResult, 'totals'>;
   currentUser: User;
   onUserMenu: () => void;
   version?: number;
 }
 
-export default function TopBar({ tab, onTab, voyage, variant, totals, finance, currentUser, onUserMenu, version }: TopBarProps) {
+export default function TopBar({ tab, onTab, voyage, currentUser, onUserMenu, version }: TopBarProps) {
   const club = aeroclubById(currentUser.aeroclubId);
   const voyageCount = voyagesForUser(currentUser.id).length;
   const aircraftCount = aircraftForUser(currentUser).length;
@@ -54,14 +51,13 @@ export default function TopBar({ tab, onTab, voyage, variant, totals, finance, c
         <button className={tab === 'aerodromes' ? 'active' : ''} onClick={() => onTab('aerodromes')}>
           <i className="fa-solid fa-tower-control"/> Aérodromes <span className="num">{aerodromeCount}</span>
         </button>
+        <button className={tab === 'team' ? 'active' : ''} onClick={() => onTab('team')}>
+          <i className="fa-solid fa-users"/> Équipe
+        </button>
       </nav>
       <div className="spacer"/>
       <div className="meta">
-        {voyage && variant ? <>
-          <span className="pill" title="Variante active">PLAN {variant.id}</span>
-          <span className="pill">⏱ {fmtHr(totals.totalMin)}</span>
-          <span className="pill" title="Coût total à payer">💶 {Math.round(finance.totals.total).toLocaleString('fr-FR')}€</span>
-        </> : null}
+        {null /* voyage stats removed */}
         <button onClick={onUserMenu} title={`${currentUser.first} ${currentUser.last}`} style={{
           background: 'transparent', border: '1px solid rgba(255,255,255,0.15)',
           padding: '3px 10px 3px 4px',

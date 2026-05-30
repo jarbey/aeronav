@@ -28,7 +28,7 @@ export interface Person {
   weightKg: number;
   license: string;
   authorizedModels: string[];
-  rolePref: 'CDB' | 'PAX';
+  rolePref: 'CDB' | 'PAX' | 'EP';
 }
 
 export interface PersonEffective extends Person {
@@ -108,6 +108,7 @@ export type BagsByLeg = Record<string, BagLoad>[];
 export interface PersonOverride {
   weightKg?: number;
   authorizedModels?: string[];
+  rolePref?: 'CDB' | 'PAX';
 }
 
 export interface Variant {
@@ -140,6 +141,7 @@ export interface Voyage {
   variants: Variant[];
   aircraftIds: string[];
   peopleIds: string[];
+  variantOrder?: string[];
 }
 
 // Calculation output types
@@ -314,5 +316,5 @@ export type FormEditorState =
   | ModelFormState
   | AerodromeFormState;
 
-export type AppTab = 'voyages' | 'voyage' | 'aircraft' | 'aerodromes';
+export type AppTab = 'voyages' | 'voyage' | 'aircraft' | 'aerodromes' | 'team';
 export type VoyageSubTab = 'map' | 'people' | 'finance' | 'recap';

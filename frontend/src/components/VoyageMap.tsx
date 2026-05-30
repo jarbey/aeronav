@@ -24,6 +24,63 @@ const waypointIcon = L.divIcon({
   className: '',
 });
 
+// ── Fuel pie icon ────────────────────────────────────────────────────────────
+
+const FUEL_COLOR_MAP: { key: string; color: string }[] = [
+  { key: 'Jet-A1',  color: '#2468c8' },  // blue
+  { key: '100LL',   color: '#2d9e5f' },  // green
+  { key: 'MOGAS',   color: '#8e44ad' },  // purple
+];
+
+function normFuels(fuels: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const f of fuels) {
+    for (const { key } of FUEL_COLOR_MAP) {
+      if (f.includes(key.split('/')[0].trim()) && !seen.has(key)) {
+        seen.add(key);
+        result.push(key);
+      }
+    }
+  }
+  return result;
+}
+
+function fuelColor(key: string): string {
+  return FUEL_COLOR_MAP.find(e => e.key === key)?.color ?? '#9ca3af';
+}
+
+function makeFuelIcon(fuels: string[], r = 4, stroke = '#6a7a8a', sw = 1): L.DivIcon {
+  const norm = normFuels(fuels);
+  const pad = sw + 1;
+  const size = (r + pad) * 2;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  let inner: string;
+  if (norm.length === 0) {
+    inner = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fffdf5"/>`;
+  } else if (norm.length === 1) {
+    inner = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fuelColor(norm[0])}"/>`;
+  } else {
+    const n = norm.length;
+    const slices = norm.map((key, i) => {
+      const a0 = (i / n) * 2 * Math.PI - Math.PI / 2;
+      const a1 = ((i + 1) / n) * 2 * Math.PI - Math.PI / 2;
+      const x1 = (cx + r * Math.cos(a0)).toFixed(2);
+      const y1 = (cy + r * Math.sin(a0)).toFixed(2);
+      const x2 = (cx + r * Math.cos(a1)).toFixed(2);
+      const y2 = (cy + r * Math.sin(a1)).toFixed(2);
+      const large = (1 / n) > 0.5 ? 1 : 0;
+      return `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2}Z" fill="${fuelColor(key)}"/>`;
+    }).join('');
+    inner = slices;
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${inner}<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${stroke}" stroke-width="${sw}"/></svg>`;
+  return L.divIcon({ html: svg, className: '', iconSize: [size, size], iconAnchor: [cx, cy], tooltipAnchor: [0, -r - 2] });
+}
+
 // Snap threshold: ~50 screen pixels in NM at lat ~47°N
 function snapNmForZoom(zoom: number): number {
   const nmPerPx = (156543 * Math.cos(47 * Math.PI / 180) / 1852) / Math.pow(2, zoom);
@@ -234,9 +291,9 @@ function LegLayer({ legIdx, fromCoord, toCoord, waypoints, isSelected, aerodrome
 }
 
 const FUEL_FILTERS: { label: string; value: string; color: string }[] = [
-  { label: '100LL',        value: '100LL',        color: 'var(--aero-green)' },
-  { label: 'Jet-A1',       value: 'Jet-A1',       color: 'var(--aero-blue)'  },
-  { label: 'MOGAS / UL91', value: 'MOGAS / UL91', color: '#8e44ad'           },
+  { label: 'Jet-A1',       value: 'Jet-A1',       color: '#2468c8' },
+  { label: '100LL',        value: '100LL',        color: '#2d9e5f' },
+  { label: 'MOGAS / UL91', value: 'MOGAS / UL91', color: '#8e44ad' },
 ];
 
 export default function VoyageMap({ variant, selectedAerodromeIcao, selectedLegIdx, onSelectAerodrome, onOpenVAC, onWaypointsChange, onSplitLeg }: VoyageMapProps) {
@@ -347,38 +404,56 @@ export default function VoyageMap({ variant, selectedAerodromeIcao, selectedLegI
         </CircleMarker>
       ))}
 
-      {/* Aerodrome markers — filtered by fuel if active */}
+      {/* Aerodrome markers — background aerodromes with fuel pie colors */}
       {aerodromes
-        .filter(ad => !fuelFilter || routeIcaos.has(ad.icao) || ad.fuel.includes(fuelFilter))
-        .map(ad => {
-          const isOnRoute    = routeIcaos.has(ad.icao);
-          const isFrom       = ad.icao === selectedFromIcao;
-          const isTo         = ad.icao === selectedToIcao;
-          const missingFuel  = !!fuelFilter && isOnRoute && !ad.fuel.includes(fuelFilter);
+        .filter(ad => !routeIcaos.has(ad.icao))
+        .filter(ad => !fuelFilter || ad.fuel.includes(fuelFilter))
+        .map(ad => (
+          <Marker
+            key={ad.icao}
+            position={[ad.coord[1], ad.coord[0]]}
+            icon={makeFuelIcon(ad.fuel, 4, '#6a7a8a', 1)}
+            eventHandlers={{ click: () => onOpenVAC(ad.icao) }}
+          >
+            <Tooltip direction="top" offset={[0, -6]} opacity={0.95}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 11 }}>{ad.icao}</span>
+              <span style={{ fontSize: 10, color: '#555', marginLeft: 4 }}>{ad.name}</span>
+              {ad.fuel.length > 0 && (
+                <span style={{ fontSize: 9, color: '#888', marginLeft: 6 }}>{ad.fuel.join(' · ')}</span>
+              )}
+            </Tooltip>
+          </Marker>
+        ))}
 
-          const fillColor    = isFrom       ? '#2d7a3a'
-                             : isTo         ? '#c8881e'
-                             : missingFuel  ? '#e67e22'   // route aerodrome missing requested fuel
-                             : isOnRoute    ? '#b8323a'
-                             : '#fffdf5';
-          const strokeColor  = isOnRoute    ? '#0b2240' : '#6a7a8a';
-          const radius       = isFrom || isTo ? 8 : isOnRoute ? 6 : 3;
-          const weight       = isFrom || isTo ? 2.5 : 1.4;
+      {/* Route aerodrome markers — state colors take priority */}
+      {aerodromes
+        .filter(ad => routeIcaos.has(ad.icao))
+        .map(ad => {
+          const isFrom      = ad.icao === selectedFromIcao;
+          const isTo        = ad.icao === selectedToIcao;
+          const missingFuel = !!fuelFilter && !ad.fuel.includes(fuelFilter);
+          const fillColor   = isFrom      ? '#2d7a3a'
+                            : isTo        ? '#c8881e'
+                            : missingFuel ? '#e67e22'
+                            : '#b8323a';
+          const radius      = isFrom || isTo ? 8 : 6;
+          const weight      = isFrom || isTo ? 2.5 : 1.8;
           return (
             <CircleMarker
               key={ad.icao}
               center={[ad.coord[1], ad.coord[0]]}
               radius={radius}
-              pathOptions={{ fillColor, fillOpacity: 1, color: strokeColor, weight }}
-              eventHandlers={{
-                click: () => isOnRoute ? onSelectAerodrome(ad.icao) : onOpenVAC(ad.icao),
-              }}
+              pathOptions={{ fillColor, fillOpacity: 1, color: '#0b2240', weight }}
+              eventHandlers={{ click: () => onSelectAerodrome(ad.icao) }}
             >
-              <Tooltip direction="top" offset={[0, -6]} opacity={0.95}>
+              <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 11 }}>{ad.icao}</span>
                 <span style={{ fontSize: 10, color: '#555', marginLeft: 4 }}>{ad.name}</span>
                 {missingFuel && (
                   <span style={{ fontSize: 9, color: '#e67e22', marginLeft: 6 }}>⚠ {fuelFilter} indisponible</span>
+                )}
+                {ad.fuel.length > 0 && (
+                  <span style={{ fontSize: 9, color: '#888', marginLeft: 6 }}>{ad.fuel.join(' · ')}</span>
                 )}
               </Tooltip>
             </CircleMarker>

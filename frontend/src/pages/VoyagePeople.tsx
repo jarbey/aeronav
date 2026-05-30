@@ -44,27 +44,59 @@ interface Props {
   onRemoveFromVoyage: (id: string) => void;
 }
 
+type SortKey = 'nom' | 'licence' | 'modeles' | 'role' | 'present' | 'heures' | 'apayer';
+type SortDir = 'asc' | 'desc';
+
 export default function VoyagePeople({ voyage, variant, computed, finance, onAddPerson, onEditPerson, onRemoveFromVoyage }: Props) {
   const [q, setQ] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('role');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
+  }
 
   const partMap = buildPartMap(variant, computed);
   const cdbCount = Object.values(partMap).filter(r => r.cdbCount > 0).length;
 
-  let rows = voyage.peopleIds
+  const rows = voyage.peopleIds
     .map(id => personById(id))
     .filter((p): p is Person => !!p)
     .filter(p => !q || (p.first + ' ' + p.last + ' ' + p.license).toLowerCase().includes(q.toLowerCase()))
-    .map(p => ({ person: p, part: partMap[p.id] || null }));
-
-  rows = rows.slice().sort((a, b) => {
-    const ap = a.part, bp = b.part;
-    if (!!ap !== !!bp) return ap ? -1 : 1;
-    if (ap && bp) {
-      if ((ap.cdbCount > 0) !== (bp.cdbCount > 0)) return ap.cdbCount > 0 ? -1 : 1;
-      return bp.totalHours - ap.totalHours;
-    }
-    return a.person.last.localeCompare(b.person.last);
-  });
+    .map(p => ({ person: p, part: partMap[p.id] || null }))
+    .sort((a, b) => {
+      const eff_a = personEffective(a.person.id, variant);
+      const eff_b = personEffective(b.person.id, variant);
+      const billing_a = finance.byPerson[a.person.id];
+      const billing_b = finance.byPerson[b.person.id];
+      let cmp = 0;
+      switch (sortKey) {
+        case 'nom':
+          cmp = [a.person.last, a.person.first].join(' ').localeCompare([b.person.last, b.person.first].join(' '));
+          break;
+        case 'licence':
+          cmp = (a.person.license || '').localeCompare(b.person.license || '');
+          break;
+        case 'modeles':
+          cmp = (eff_a?.authorizedModels.length ?? 0) - (eff_b?.authorizedModels.length ?? 0);
+          break;
+        case 'role':
+          cmp = ((b.part?.cdbCount ?? 0) - (a.part?.cdbCount ?? 0)) ||
+                ((b.part?.paxCount ?? 0) - (a.part?.paxCount ?? 0));
+          break;
+        case 'present':
+          cmp = (a.part?.legs.length ?? 0) - (b.part?.legs.length ?? 0);
+          break;
+        case 'heures':
+          cmp = (a.part?.totalHours ?? 0) - (b.part?.totalHours ?? 0);
+          break;
+        case 'apayer':
+          cmp = (billing_a?.total ?? 0) - (billing_b?.total ?? 0);
+          break;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
 
   return (
     <div style={{ padding: 16, height: '100%', display: 'flex', flexDirection: 'column', gap: 12, overflow: 'hidden', background: 'var(--surface)' }}>
@@ -83,20 +115,30 @@ export default function VoyagePeople({ voyage, variant, computed, finance, onAdd
           <table className="table">
             <thead>
               <tr>
-                <th style={{ width: 38 }}></th>
-                <th>Nom</th>
-                <th>Licence</th>
-                <th>Avions autorisés</th>
-                <th>Rôle voyage</th>
-                <th>Présent sur</th>
-                <th style={{ textAlign: 'right' }}>Heures</th>
-                <th style={{ textAlign: 'right' }}>À payer</th>
-                <th style={{ width: 110 }}></th>
+                <th style={{ width: 38 }}/>
+                {([
+                  ['nom',     'Nom',              false],
+                  ['licence', 'Licence',          false],
+                  ['modeles', 'Avions autorisés', false],
+                  ['role',    'Rôle voyage',      false],
+                  ['present', 'Présent sur',      false],
+                  ['heures',  'Heures',           true],
+                  ['apayer',  'À payer',          true],
+                ] as [SortKey, string, boolean][]).map(([key, label, right]) => (
+                  <th key={key} style={{ textAlign: right ? 'right' : undefined, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                    onClick={() => handleSort(key)}>
+                    {label}
+                    {sortKey === key
+                      ? <span style={{ marginLeft: 4, fontSize: 9, color: 'var(--aero-red)' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
+                      : <span style={{ marginLeft: 4, fontSize: 9, color: 'var(--ink-4)' }}>⇅</span>}
+                  </th>
+                ))}
+                <th style={{ width: 110 }}/>
               </tr>
             </thead>
             <tbody>
               {rows.map(({ person: p, part }) => {
-                const initials = (p.first[0] + p.last[0]).toUpperCase();
+                const initials = (p.first[0] + (p.last?.[0] ?? '')).toUpperCase();
                 const colorIdx = (p.id.charCodeAt(1) % 6) + 1;
                 const billing = finance.byPerson[p.id];
                 const linkedUser = userForPerson(p.id);
@@ -109,7 +151,7 @@ export default function VoyagePeople({ voyage, variant, computed, finance, onAdd
                     </td>
                     <td>
                       <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        {p.first} {p.last}
+                        {[p.first, p.last].filter(Boolean).join(' ')}
                         {linkedUser && (
                           <span className="chip info" style={{ fontSize: 9 }} title={`Compte utilisateur ${linkedUser.email}`}>
                             <i className="fa-solid fa-user-check" style={{ marginRight: 2 }}/> Utilisateur
@@ -119,7 +161,7 @@ export default function VoyagePeople({ voyage, variant, computed, finance, onAdd
                           {eff.weightKg}kg{overridden && eff._override.weightKg != null ? '⁺' : ''}
                         </span>
                       </div>
-                      <div style={{ fontSize: 10.5, color: 'var(--ink-3)' }}>{linkedUser?.email || `ID ${p.id.toUpperCase()}`} · {p.rolePref}</div>
+                      <div style={{ fontSize: 10.5, color: 'var(--ink-3)' }}>{linkedUser?.email || eff.rolePref}</div>
                     </td>
                     <td className="mono" style={{ fontSize: 11 }}>{p.license || '—'}</td>
                     <td>

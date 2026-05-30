@@ -160,6 +160,7 @@ model Voyage {
   activeVariantId String?
   aircraftIds     String[] @default([])
   peopleIds       String[] @default([])
+  variantOrder    String[] @default([])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

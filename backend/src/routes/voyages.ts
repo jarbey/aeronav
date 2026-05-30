@@ -33,6 +33,7 @@ const voyageUpdateSchema = z.object({
   activeVariantId: z.string().nullable().optional(),
   aircraftIds: z.array(z.string()).optional(),
   peopleIds: z.array(z.string()).optional(),
+  variantOrder: z.array(z.string()).optional(),
 });
 
 const variantCreateSchema = z.object({
@@ -221,6 +222,7 @@ export async function voyagesRoutes(app: FastifyInstance): Promise<void> {
       if (parsed.data.sharedWith !== undefined) updateData.sharedWith = parsed.data.sharedWith;
       if (parsed.data.activeVariantId !== undefined) updateData.activeVariantId = parsed.data.activeVariantId;
       if (parsed.data.aircraftIds !== undefined) updateData.aircraftIds = parsed.data.aircraftIds;
+      if (parsed.data.variantOrder !== undefined) updateData.variantOrder = parsed.data.variantOrder;
       if (parsed.data.peopleIds !== undefined) updateData.peopleIds = parsed.data.peopleIds;
 
       const updated = await prisma.voyage.update({
