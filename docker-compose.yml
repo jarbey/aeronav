@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: aeronav
+      POSTGRES_USER: aeronav
+      POSTGRES_PASSWORD: aeronav_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aeronav"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      target: builder   # use builder stage in dev (has tsx, etc.)
+    command: npm run dev
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://aeronav:aeronav_dev@db:5432/aeronav
+      JWT_SECRET: dev_secret_change_in_production
+      NODE_ENV: development
+    ports:
+      - "3001:3001"
+
+  frontend:
+    build:
+      context: ./frontend
+      target: builder   # use builder stage in dev
+    command: npm run dev -- --host 0.0.0.0
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      VITE_API_URL: http://localhost:3001/api
+    ports:
+      - "5173:5173"
+
+volumes:
+  postgres_data:

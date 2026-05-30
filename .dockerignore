@@ -1,0 +1,5 @@
+node_modules
+.git
+.github
+*.md
+design_handoff_aeronav

@@ -1,0 +1,195 @@
+// AeroNav — Prisma schema
+// PostgreSQL 15 + Prisma 5
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Aeroclub (tenant) ───────────────────────────────────────────────────────
+
+model Aeroclub {
+  id       String @id @default(cuid())
+  name     String
+  code     String @unique
+  city     String
+  color    String
+  baseIcao String
+
+  users          User[]
+  people         Person[]
+  aircraftModels AircraftModel[]
+  aircraft       Aircraft[]
+  voyages        Voyage[]
+
+  @@map("aeroclubs")
+}
+
+// ─── User ────────────────────────────────────────────────────────────────────
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  firstName  String
+  lastName   String
+  role       String   @default("Pilote")
+  aeroclubId String
+  personId   String?
+  provider   String   @default("local")
+  createdAt  DateTime @default(now())
+
+  aeroclub Aeroclub  @relation(fields: [aeroclubId], references: [id])
+  person   Person?   @relation(fields: [personId], references: [id])
+  voyages  Voyage[]  @relation("VoyageOwner")
+
+  @@map("users")
+}
+
+// ─── Person ──────────────────────────────────────────────────────────────────
+
+model Person {
+  id               String   @id @default(cuid())
+  aeroclubId       String
+  firstName        String
+  lastName         String
+  weightKg         Float
+  license          String
+  authorizedModels String[]
+  rolePref         String?
+
+  aeroclub Aeroclub @relation(fields: [aeroclubId], references: [id])
+  users    User[]
+
+  @@map("people")
+}
+
+// ─── AircraftModel ───────────────────────────────────────────────────────────
+
+model AircraftModel {
+  id          String @id @default(cuid())
+  aeroclubId  String
+  label       String
+  type        String
+  fuelType    String
+  seats       Int
+  cruiseKt    Float
+  burnLh      Float
+  fuelCapL    Float
+  mtowKg      Float
+  mldwKg      Float
+  minRunwayM  Int
+  hourlyEUR   Float
+  icon        String?
+
+  aeroclub Aeroclub   @relation(fields: [aeroclubId], references: [id])
+  aircraft Aircraft[]
+
+  @@map("aircraft_models")
+}
+
+// ─── Aircraft ────────────────────────────────────────────────────────────────
+
+model Aircraft {
+  id          String  @id @default(cuid())
+  reg         String  @unique
+  callsign    String
+  modelId     String
+  aeroclubId  String
+  color       String
+  massEmptyKg Float   @default(0)
+  notes       String?
+
+  model    AircraftModel @relation(fields: [modelId], references: [id])
+  aeroclub Aeroclub      @relation(fields: [aeroclubId], references: [id])
+
+  @@map("aircraft")
+}
+
+// ─── Aerodrome ───────────────────────────────────────────────────────────────
+
+model Aerodrome {
+  id          String  @id @default(cuid())
+  icao        String  @unique
+  name        String
+  city        String
+  lngLat      Float[]
+  elevationFt Int
+  fuel         String[]
+  fuelSchedule Json?
+  night        Boolean @default(false)
+  ppr         Boolean @default(false)
+  atc         String
+  taxLanding  Float   @default(0)
+  taxParking  Float   @default(0)
+  notes       String?
+  runways Runway[]
+
+  @@map("aerodromes")
+}
+
+// ─── Runway ──────────────────────────────────────────────────────────────────
+
+model Runway {
+  id          String @id @default(cuid())
+  aerodromeId String
+  qfu         String
+  lengthM     Int
+  surface     String
+
+  aerodrome Aerodrome @relation(fields: [aerodromeId], references: [id], onDelete: Cascade)
+
+  @@map("runways")
+}
+
+// ─── Voyage ──────────────────────────────────────────────────────────────────
+
+model Voyage {
+  id              String   @id @default(cuid())
+  title           String
+  date            DateTime
+  aeroclubId      String
+  ownerId         String
+  sharedWith      String[]
+  status          String   @default("draft")
+  activeVariantId String?
+  aircraftIds     String[] @default([])
+  peopleIds       String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  aeroclub Aeroclub  @relation(fields: [aeroclubId], references: [id])
+  owner    User      @relation("VoyageOwner", fields: [ownerId], references: [id])
+  variants Variant[]
+
+  @@map("voyages")
+}
+
+// ─── Variant ─────────────────────────────────────────────────────────────────
+
+model Variant {
+  id              String   @id @default(cuid())
+  voyageId        String
+  label           String
+  weather         String   @default("")
+  tag             String   @default("draft")
+  route           String[]
+  stopMin         Json     @default("[]")
+  cruiseAltFt     Json     @default("[]")
+  taxiOutMin      Json     @default("[]")
+  taxiInMin       Json     @default("[]")
+  crewsByLeg      Json     @default("[]")
+  fuelLoadL       Json     @default("[]")
+  bagsByLeg       Json     @default("[]")
+  personOverrides Json     @default("{}")
+  departureTime   String?
+  waypoints       Json     @default("[]")
+
+  voyage Voyage @relation(fields: [voyageId], references: [id], onDelete: Cascade)
+
+  @@map("variants")
+}

@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:15-alpine
+    env_file: .env.prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - aeronav-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY}/aeronav-backend:latest
+    env_file: .env.prod
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - aeronav-net
+    ports:
+      - "127.0.0.1:3001:3001"   # bind to loopback — nginx reverse-proxies externally
+    restart: unless-stopped
+    # Run migrations then start the server
+    command: sh -c "npx prisma migrate deploy && node dist/index.js"
+
+  frontend:
+    image: ghcr.io/${GITHUB_REPOSITORY}/aeronav-frontend:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - aeronav-net
+    restart: unless-stopped
+
+networks:
+  aeronav-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
