@@ -7,9 +7,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx src/prisma/seed.ts",
-    "import:aerodromes": "tsx src/prisma/import-aerodromes.ts",
-    "analyze:vac": "tsx src/prisma/analyze-vac.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "import:aerodromes": "tsx scripts/import-aerodromes.ts",
+    "analyze:vac": "tsx scripts/analyze-vac.ts",
     "db:generate": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -35,6 +35,6 @@
     "vitest": "^2.1.8"
   },
   "prisma": {
-    "seed": "tsx src/prisma/seed.ts"
+    "seed": "tsx scripts/seed.ts"
   }
 }
