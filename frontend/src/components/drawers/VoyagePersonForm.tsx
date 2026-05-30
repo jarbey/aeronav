@@ -233,7 +233,7 @@ export default function VoyagePersonForm({ person, variant, onClose, onSave, onD
           <>
             <div style={{ padding: '8px 10px', background: '#d8e6f3', border: '1px solid #b9d0e6', borderRadius: 4, marginBottom: 10, fontSize: 11, color: 'var(--aero-blue-2)' }}>
               <i className="fa-solid fa-circle-info" style={{ marginRight: 5 }}/>
-              Le <b>rôle, poids et avions autorisés</b> ci-dessous ne s'appliquent qu'à <b>ce voyage</b> ; le profil global n'est pas modifié.
+              Le <b>rôle, poids et avions autorisés</b> ci-dessous s'appliquent à <b>tout ce voyage</b> (toutes les étapes) ; le profil global n'est pas modifié.
             </div>
             <Field label="Rôle pour ce voyage">
               <ChipSelect multi={false}
@@ -266,7 +266,7 @@ export default function VoyagePersonForm({ person, variant, onClose, onSave, onD
             onChange={v => locked ? setVoyageAuth(v as string[]) : setGlobalAuth(v as string[])}/>
           {locked && JSON.stringify(voyageAuth) !== JSON.stringify(basePerson.authorizedModels) && (
             <div style={{ fontSize: 10, color: 'var(--aero-amber)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <i className="fa-solid fa-triangle-exclamation"/> Surchargé pour ce voyage.
+              <i className="fa-solid fa-triangle-exclamation"/> Surchargé pour tout le voyage.
               <button className="btn btn-sm btn-ghost" style={{ marginLeft: 'auto' }}
                 onClick={() => setVoyageAuth(basePerson.authorizedModels)}>
                 <i className="fa-solid fa-rotate-left"/> Réinitialiser

@@ -59,7 +59,21 @@ export default function VoyagePeople({ voyage, variant, computed, finance, versi
     else { setSortKey(key); setSortDir('asc'); }
   }
 
-  const partMap = buildPartMap(variant, computed);
+  // Build partMap from ALL variants so "présent sur" reflects the whole voyage
+  const partMap = voyage.variants.reduce((acc, va) => {
+    const vaComputed = va.id === variant.id ? computed : { legs: [] as typeof computed.legs };
+    const vaMap = buildPartMap(va, vaComputed as VoyageResult);
+    Object.entries(vaMap).forEach(([pid, entry]) => {
+      if (!acc[pid]) acc[pid] = { ...entry };
+      else {
+        acc[pid].legs.push(...entry.legs);
+        acc[pid].cdbCount += entry.cdbCount;
+        acc[pid].paxCount += entry.paxCount;
+        acc[pid].totalHours += entry.totalHours;
+      }
+    });
+    return acc;
+  }, {} as ReturnType<typeof buildPartMap>);
   const cdbCount = Object.values(partMap).filter(r => r.cdbCount > 0).length;
 
   // Collect all person IDs from every source across ALL variants (Finance sums all variants too)
