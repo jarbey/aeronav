@@ -35,7 +35,7 @@ export function Popover({ onClose, anchor, children, width = 320 }: PopoverProps
 
   return (
     <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(11,34,64,0.10)',
+      position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(11,34,64,0.10)',
     }}>
       <div ref={ref} onClick={e => e.stopPropagation()} style={{
         position: 'absolute', top: pos.top, left: pos.left, width,

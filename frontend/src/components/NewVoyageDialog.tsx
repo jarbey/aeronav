@@ -174,7 +174,7 @@ export default function NewVoyageDialog({ currentUser, onClose, onCreate }: Prop
   }
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(11,34,64,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div onClick={onClose} className="modal-backdrop">
       <div onClick={e => e.stopPropagation()} className="modal" style={{ width: 720, maxHeight: '90vh' }}>
         <div className="modal-head">
           <h2><i className="fa-solid fa-plus" style={{ marginRight: 6 }}/> Nouveau voyage</h2>

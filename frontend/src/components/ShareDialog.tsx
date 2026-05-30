@@ -20,7 +20,7 @@ export default function ShareDialog({ voyage, currentUser, onClose, onUpdate }: 
   function save() { onUpdate(voyage.id, shared); onClose(); }
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(11,34,64,0.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div onClick={onClose} className="modal-backdrop">
       <div onClick={e => e.stopPropagation()} className="modal" style={{ width: 520, maxHeight: '80vh' }}>
         <div className="modal-head">
           <h2><i className="fa-solid fa-share-nodes" style={{ marginRight: 6 }}/> Partager le voyage</h2>
