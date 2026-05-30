@@ -160,6 +160,7 @@ function WaypointMarker({ pos, onDragEnd, onDelete }: {
   onDelete: () => void;
 }) {
   const markerRef = useRef<L.Marker>(null);
+  const map = useMap();
   return (
     <Marker
       ref={markerRef}
@@ -167,11 +168,13 @@ function WaypointMarker({ pos, onDragEnd, onDelete }: {
       icon={waypointIcon}
       draggable
       eventHandlers={{
-        dragend: (e) => {
+        dragend: () => {
           const ll = markerRef.current?.getLatLng();
           if (ll) {
-            const nativeEvt = (e as unknown as { originalEvent?: MouseEvent }).originalEvent;
-            onDragEnd([ll.lng, ll.lat], nativeEvt?.clientX ?? 0, nativeEvt?.clientY ?? 0);
+            // Use Leaflet projection → container coords → viewport coords (works for mouse & touch)
+            const point = map.latLngToContainerPoint(ll);
+            const rect = map.getContainer().getBoundingClientRect();
+            onDragEnd([ll.lng, ll.lat], rect.left + point.x, rect.top + point.y);
           }
         },
         dblclick: (e) => {
@@ -228,10 +231,12 @@ function LegLayer({ legIdx, fromCoord, toCoord, waypoints, isSelected, aerodrome
     const threshold = snapNmForZoom(map.getZoom());
     const nearby = nearestAerodrome(click, threshold);
     if (nearby) {
+      // Use containerPoint + container rect for reliable coords (mouse & touch)
+      const rect = map.getContainer().getBoundingClientRect();
       onPropose({
         legIdx, ad: nearby,
-        screenX: e.originalEvent.clientX,
-        screenY: e.originalEvent.clientY,
+        screenX: rect.left + e.containerPoint.x,
+        screenY: rect.top + e.containerPoint.y,
         insertAt, nextWaypoints: next,
       });
       return;
