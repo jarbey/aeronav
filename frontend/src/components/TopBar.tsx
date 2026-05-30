@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Voyage, User } from '../types';
-import { voyagesForUser, aircraftForUser, aeroclubById } from '../data/mockData';
+import { voyagesForUser, aircraftForUser, aeroclubById, USERS } from '../data/mockData';
 import { useAerodromes } from '../api/aerodromes';
 import { UserAvatar } from './UserAvatar';
 import type { AppTab } from '../types';
@@ -20,6 +20,7 @@ export default function TopBar({ tab, onTab, voyage, currentUser, onUserMenu, ve
   const aircraftCount = aircraftForUser(currentUser).length;
   const { data: aerodromes } = useAerodromes();
   const aerodromeCount = aerodromes?.length ?? '…';
+  const teamCount = USERS.filter(u => u.aeroclubId === currentUser.aeroclubId).length;
   void version;
 
   return (
@@ -52,7 +53,7 @@ export default function TopBar({ tab, onTab, voyage, currentUser, onUserMenu, ve
           <i className="fa-solid fa-tower-control"/> Aérodromes <span className="num">{aerodromeCount}</span>
         </button>
         <button className={tab === 'team' ? 'active' : ''} onClick={() => onTab('team')}>
-          <i className="fa-solid fa-users"/> Équipe
+          <i className="fa-solid fa-users"/> Équipe <span className="num">{teamCount}</span>
         </button>
       </nav>
       <div className="spacer"/>
