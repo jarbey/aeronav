@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Voyage, Variant, VoyageResult } from '../types';
-import { acById, personById, AC_MODELS, fmtHr } from '../data/mockData';
+import { acById, personById, AC_MODELS, fmtHr, computeVoyage } from '../data/mockData';
+import { useAerodromes } from '../api/aerodromes';
 
 function parseTime(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
@@ -11,12 +12,6 @@ function formatTime(mins: number): string {
   const h = Math.floor(total / 60);
   const m = Math.round(total % 60);
   return `${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}`;
-}
-
-interface Props {
-  voyage: Voyage;
-  variant: Variant;
-  computed: VoyageResult;
 }
 
 function towColor(tow: number, mtow: number): string {
@@ -33,69 +28,117 @@ function fuelLeftColor(fuelLeftL: number, burnLh: number): string {
   return 'var(--aero-green)';
 }
 
-function countUniqueParticipants(variant: Variant): number {
-  const ids = new Set<string>();
-  variant.crewsByLeg.forEach(leg => {
-    Object.values(leg).forEach(crew => {
-      if (crew.cdb) ids.add(crew.cdb);
-      crew.pax.forEach(pid => ids.add(pid));
-    });
-  });
-  return ids.size;
+interface Props {
+  voyage: Voyage;
 }
 
-export default function VoyageRecap({ voyage, variant, computed }: Props) {
-  const uniquePeople = countUniqueParticipants(variant);
+export default function VoyageRecap({ voyage }: Props) {
+  const { data: aerodromes } = useAerodromes();
+
   const acCount = voyage.aircraftIds.length;
 
-  // Build per-leg departure/arrival times if departureTime is set
+  // Compute totals across all variants
+  const allComputed = voyage.variants.map(va => computeVoyage(va, voyage.aircraftIds, aerodromes));
+  const totalFlightMin = allComputed.reduce((s, c) => s + c.flightMin, 0);
+  const totalStopMin = allComputed.reduce((s, c) => s + c.stopMin, 0);
+  const totalMin = allComputed.reduce((s, c) => s + c.totalMin, 0);
+  const uniquePeople = new Set(
+    voyage.variants.flatMap(va =>
+      va.crewsByLeg.flatMap(leg =>
+        Object.values(leg).flatMap(crew => [crew.cdb, ...crew.pax].filter(Boolean) as string[])
+      )
+    )
+  ).size;
+
+  return (
+    <div style={{ overflowY: 'auto', height: '100%', padding: '20px 24px 40px' }}>
+
+      {/* Header voyage */}
+      <div style={{
+        background: 'var(--ink)', color: '#fff', borderRadius: 10,
+        padding: '16px 20px', marginBottom: 24,
+        display: 'flex', flexWrap: 'wrap', gap: '20px 40px', alignItems: 'center',
+      }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.55, marginBottom: 2 }}>Voyage</div>
+          <div style={{ fontSize: 17, fontWeight: 700 }}>{voyage.title}</div>
+          <div style={{ fontSize: 12, opacity: 0.65, marginTop: 2 }}>
+            {new Date(voyage.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap' }}>
+          <Stat label="Vol total" value={fmtHr(totalFlightMin)} />
+          <Stat label="Escales" value={fmtHr(totalStopMin)} />
+          <Stat label="Durée totale" value={fmtHr(totalMin)} />
+          <Stat label="Avions" value={String(acCount)} />
+          <Stat label="Participants" value={String(uniquePeople)} />
+          <Stat label="Étapes" value={String(voyage.variants.length)} />
+        </div>
+      </div>
+
+      {/* Une section par étape (variant) */}
+      {voyage.variants.map((va, vaIdx) => (
+        <VariantSection
+          key={va.id}
+          variantIdx={vaIdx}
+          variant={va}
+          computed={allComputed[vaIdx]}
+          aircraftIds={voyage.aircraftIds}
+        />
+      ))}
+    </div>
+  );
+}
+
+function VariantSection({ variantIdx, variant, computed, aircraftIds }: {
+  variantIdx: number;
+  variant: Variant;
+  computed: VoyageResult;
+  aircraftIds: string[];
+}) {
   const hasTimes = !!variant.departureTime;
   const legTimes: { dep: number; arr: number }[] = [];
   if (hasTimes) {
     let cursor = parseTime(variant.departureTime!);
     computed.legs.forEach((leg, i) => {
       const durMin = Object.values(leg.perAc).reduce((max, p) => Math.max(max, p.durMin), 0);
-      const dep = cursor;
-      const arr = cursor + durMin;
-      legTimes.push({ dep, arr });
-      cursor = arr + (variant.stopMin[i + 1] ?? 0);
+      legTimes.push({ dep: cursor, arr: cursor + durMin });
+      cursor = cursor + durMin + (variant.stopMin[i + 1] ?? 0);
     });
   }
 
   return (
-    <div style={{ overflowY: 'auto', height: '100%', padding: '20px 24px 40px' }}>
-
-      {/* Header */}
+    <div style={{ marginBottom: 32 }}>
+      {/* Étape header */}
       <div style={{
-        background: 'var(--ink)',
-        color: '#fff',
-        borderRadius: 10,
-        padding: '16px 20px',
-        marginBottom: 20,
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '20px 40px',
-        alignItems: 'center',
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '10px 16px', marginBottom: 8,
+        background: 'var(--surface-2)', borderRadius: 6,
+        border: '1px solid var(--hairline)',
       }}>
+        <span style={{
+          width: 26, height: 26, borderRadius: '50%',
+          background: 'var(--aero-red)', color: '#fff',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 11, flexShrink: 0,
+        }}>{variantIdx + 1}</span>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.55, marginBottom: 2 }}>Voyage</div>
-          <div style={{ fontSize: 17, fontWeight: 700 }}>{voyage.title}</div>
-          <div style={{ fontSize: 12, opacity: 0.65, marginTop: 2 }}>{voyage.date || '—'}</div>
+          <div style={{ fontWeight: 700, fontSize: 13 }}>{variant.label}</div>
+          {variant.weather && <div style={{ fontSize: 11, color: 'var(--ink-3)', fontStyle: 'italic' }}>{variant.weather}</div>}
         </div>
-        <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap' }}>
-          <Stat label="Vol" value={fmtHr(computed.flightMin)} />
-          <Stat label="Escales" value={fmtHr(computed.stopMin)} />
-          <Stat label="Total" value={fmtHr(computed.totalMin)} />
-          {hasTimes && legTimes.length > 0 && <>
-            <Stat label="Départ" value={formatTime(legTimes[0].dep)} />
-            <Stat label="Arrivée" value={formatTime(legTimes[legTimes.length - 1].arr)} />
-          </>}
-          <Stat label="Avions" value={String(acCount)} />
-          <Stat label="Participants" value={String(uniquePeople)} />
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 20, alignItems: 'center' }}>
+          <BadgeInfo icon="fa-clock" label={fmtHr(computed.totalMin)} />
+          {hasTimes && legTimes.length > 0 && (
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 12, color: 'var(--ink)' }}>
+              {formatTime(legTimes[0].dep)}
+              <i className="fa-solid fa-arrow-right" style={{ fontSize: 9, color: 'var(--ink-3)', margin: '0 5px' }}/>
+              {formatTime(legTimes[legTimes.length - 1].arr)}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Legs */}
+      {/* Branches de cette étape */}
       {computed.legs.map((leg, legIdx) => {
         const acIds = Object.keys(leg.perAc);
         const altFt = variant.cruiseAltFt[legIdx];
@@ -104,185 +147,118 @@ export default function VoyageRecap({ voyage, variant, computed }: Props) {
 
         return (
           <React.Fragment key={legIdx}>
-            <div style={{
-              background: '#fff',
-              border: '1px solid var(--hairline)',
-              borderRadius: 8,
-              marginBottom: 0,
-              overflow: 'hidden',
-            }}>
-              {/* Leg header */}
+            <div style={{ background: '#fff', border: '1px solid var(--hairline)', borderRadius: 6, marginBottom: 0, overflow: 'hidden' }}>
+              {/* Branch header */}
               <div style={{
-                padding: '10px 16px',
-                background: 'var(--surface-2)',
+                padding: '8px 14px', background: 'var(--paper-2)',
                 borderBottom: '1px solid var(--hairline)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
+                display: 'flex', alignItems: 'center', gap: 10,
               }}>
                 <span style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+                  fontSize: 10, fontWeight: 700,
                   background: 'var(--ink)', color: '#fff',
-                  borderRadius: 4, padding: '2px 7px',
-                }}>
-                  {legIdx + 1}
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-                  {leg.fromIcao}
-                </span>
-                <i className="fa-solid fa-arrow-right" style={{ fontSize: 10, color: 'var(--ink-3)' }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-                  {leg.toIcao}
-                </span>
-                <span style={{ fontSize: 11, color: 'var(--ink-3)', marginLeft: 4 }}>
-                  {leg.from.name} → {leg.to.name}
-                </span>
-                <div style={{ flex: 1 }} />
-                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  borderRadius: 3, padding: '1px 6px',
+                }}>{legIdx + 1}</span>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{leg.fromIcao}</span>
+                <i className="fa-solid fa-arrow-right" style={{ fontSize: 9, color: 'var(--ink-3)' }}/>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{leg.toIcao}</span>
+                <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>{leg.from.name} → {leg.to.name}</span>
+                <div style={{ flex: 1 }}/>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                   {times && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--ink)' }}>
-                      {formatTime(times.dep)}
-                      <i className="fa-solid fa-arrow-right" style={{ fontSize: 9, color: 'var(--ink-3)' }}/>
-                      {formatTime(times.arr)}
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 11 }}>
+                      {formatTime(times.dep)} → {formatTime(times.arr)}
                     </span>
                   )}
-                  <BadgeInfo icon="fa-route" label={`${Math.round(leg.distance)} NM`} />
-                  <BadgeInfo icon="fa-compass" label={`${Math.round(leg.bearing)}°`} />
-                  {altFt != null && <BadgeInfo icon="fa-mountain" label={`FL${Math.round(altFt / 100)}`} />}
+                  <BadgeInfo icon="fa-route" label={`${Math.round(leg.distance)} NM`}/>
+                  <BadgeInfo icon="fa-compass" label={`${Math.round(leg.bearing)}°`}/>
+                  {altFt != null && <BadgeInfo icon="fa-mountain" label={`FL${Math.round(altFt / 100)}`}/>}
                 </div>
               </div>
 
-              {/* Aircraft rows */}
+              {/* Avions */}
               {acIds.map((acId, acIdx) => {
                 const ac = acById(acId);
                 const res = leg.perAc[acId];
                 if (!ac || !res) return null;
                 const model = AC_MODELS[ac.model];
-                const fuelLoadL = (variant.fuelLoadL[legIdx] && variant.fuelLoadL[legIdx][acId]) || 0;
+                const fuelLoadL = variant.fuelLoadL[legIdx]?.[acId] || 0;
                 const cdbPerson = res.crew.cdb ? personById(res.crew.cdb) : null;
                 const paxPeople = res.crew.pax.map(id => personById(id)).filter(Boolean);
                 const mtow = model?.mtowKg ?? res.mtow;
-                const fuelCapL = model?.fuelCapL ?? 0;
 
                 return (
-                  <div
-                    key={acId}
-                    style={{
-                      padding: '10px 16px',
-                      borderTop: acIdx > 0 ? '1px solid var(--hairline)' : undefined,
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr 1fr 1fr',
-                      gap: '0 12px',
-                      alignItems: 'center',
-                      fontSize: 12,
-                    }}
-                  >
-                    {/* Immat + modèle */}
+                  <div key={acId} style={{
+                    padding: '8px 14px',
+                    borderTop: acIdx > 0 ? '1px solid var(--hairline)' : undefined,
+                    display: 'grid',
+                    gridTemplateColumns: '140px 1fr 130px 70px 70px 80px',
+                    gap: '0 12px', alignItems: 'center', fontSize: 12,
+                  }}>
+                    {/* Immat */}
                     <div>
-                      <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: 12, color: ac.color }}>{ac.reg}</div>
-                      <div style={{ fontSize: 10.5, color: 'var(--ink-3)', marginTop: 1 }}>{model?.label ?? ac.model}</div>
+                      <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: ac.color }}>{ac.reg}</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>{model?.label ?? ac.model}</div>
                     </div>
 
-                    {/* CDB + PAX */}
-                    <div style={{ gridColumn: 'span 2' }}>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 6px', alignItems: 'center' }}>
-                        {cdbPerson ? (
-                          <span style={{
-                            fontSize: 10.5, padding: '1px 7px',
-                            background: 'var(--ink)', color: '#fff8df',
-                            borderRadius: 99, fontWeight: 700,
-                          }}>
-                            {cdbPerson.first} {cdbPerson.last}
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: 10.5, color: 'var(--ink-3)' }}>Sans CDB</span>
-                        )}
-                        {paxPeople.map(p => p && (
-                          <span key={p.id} style={{
-                            fontSize: 10.5, padding: '1px 7px',
-                            background: 'var(--paper-2)', color: 'var(--ink-2)',
-                            borderRadius: 99,
-                          }}>
-                            {p.first} {p.last}
-                          </span>
-                        ))}
-                      </div>
+                    {/* Équipage */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 6px' }}>
+                      {cdbPerson
+                        ? <span style={{ fontSize: 10.5, padding: '1px 7px', background: 'var(--ink)', color: '#fff8df', borderRadius: 99, fontWeight: 700 }}>{cdbPerson.first} {cdbPerson.last}</span>
+                        : <span style={{ fontSize: 10.5, color: 'var(--aero-red)' }}>Sans CDB</span>}
+                      {paxPeople.map(p => p && (
+                        <span key={p.id} style={{ fontSize: 10.5, padding: '1px 7px', background: 'var(--paper-2)', color: 'var(--ink-2)', borderRadius: 99 }}>{p.first} {p.last}</span>
+                      ))}
                     </div>
 
-                    {/* TOW / MTOW */}
+                    {/* TOW */}
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 1 }}>TOW / MTOW</div>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: towColor(res.tow, mtow) }}>
-                        {Math.round(res.tow)}
-                      </span>
-                      <span style={{ color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
-                        {' / '}{Math.round(mtow)} kg
+                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>TOW / MTOW</div>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 11, color: towColor(res.tow, mtow) }}>
+                        {Math.round(res.tow)}<span style={{ color: 'var(--ink-3)', fontWeight: 400 }}>/{Math.round(mtow)} kg</span>
                       </span>
                     </div>
 
                     {/* Carburant départ */}
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 1 }}>Départ</div>
-                      <span className="mono" style={{ fontWeight: 600 }}>{Math.round(fuelLoadL)}</span>
-                      <span style={{ color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}> L</span>
+                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>Départ</div>
+                      <span className="mono" style={{ fontWeight: 600 }}>{Math.round(fuelLoadL)} L</span>
                     </div>
 
                     {/* Brûlé */}
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 1 }}>Brûlé</div>
-                      <span className="mono" style={{ fontWeight: 600 }}>{Math.round(res.burnL)}</span>
-                      <span style={{ color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}> L</span>
+                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>Brûlé</div>
+                      <span className="mono" style={{ fontWeight: 600 }}>{Math.round(res.burnL)} L</span>
                     </div>
 
-                    {/* Restant + durée */}
+                    {/* Restant */}
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 1 }}>Restant</div>
-                      <span
-                        className="mono"
-                        style={{ fontWeight: 700, color: fuelLeftColor(res.fuelLeftL, model?.burnLh || 1) }}
-                      >
-                        {Math.round(res.fuelLeftL)}
+                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>Restant</div>
+                      <span className="mono" style={{ fontWeight: 700, color: fuelLeftColor(res.fuelLeftL, model?.burnLh || 1) }}>
+                        {Math.round(res.fuelLeftL)} L
                       </span>
-                      <span style={{ color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}> L</span>
-                      <div style={{ fontSize: 10.5, color: 'var(--ink-3)', marginTop: 1 }}>{fmtHr(res.durMin)}</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink-3)' }}>{fmtHr(res.durMin)}</div>
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* Stopover separator */}
+            {/* Escale */}
             {stop != null && stop > 0 && legIdx < computed.legs.length - 1 && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '8px 16px',
-                margin: '0',
-                color: 'var(--ink-3)',
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-              }}>
-                <div style={{ flex: 1, height: 1, background: 'var(--hairline)' }} />
-                <i className="fa-solid fa-clock" style={{ fontSize: 10 }} />
-                <span>
-                  Escale à {leg.toIcao} — +{fmtHr(stop)}
-                  {legTimes[legIdx + 1] && (
-                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, marginLeft: 8, color: 'var(--ink)' }}>
-                      → départ {formatTime(legTimes[legIdx + 1].dep)}
-                    </span>
-                  )}
-                </span>
-                <div style={{ flex: 1, height: 1, background: 'var(--hairline)' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', fontSize: 11, color: 'var(--ink-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--hairline)' }}/>
+                <i className="fa-solid fa-clock" style={{ fontSize: 10 }}/>
+                Escale à {leg.toIcao} — +{fmtHr(stop)}
+                {legTimes[legIdx + 1] && (
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink)' }}>
+                    → départ {formatTime(legTimes[legIdx + 1].dep)}
+                  </span>
+                )}
+                <div style={{ flex: 1, height: 1, background: 'var(--hairline)' }}/>
               </div>
             )}
-
-            {/* Visual separation between legs when no stopover shown */}
-            {(stop == null || stop === 0) && legIdx < computed.legs.length - 1 && (
-              <div style={{ height: 8 }} />
-            )}
+            {(stop == null || stop === 0) && legIdx < computed.legs.length - 1 && <div style={{ height: 6 }}/>}
           </React.Fragment>
         );
       })}
@@ -302,7 +278,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 function BadgeInfo({ icon, label }: { icon: string; label: string }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--ink-2)' }}>
-      <i className={`fa-solid ${icon}`} style={{ fontSize: 10, color: 'var(--ink-3)' }} />
+      <i className={`fa-solid ${icon}`} style={{ fontSize: 10, color: 'var(--ink-3)' }}/>
       <span className="mono">{label}</span>
     </span>
   );

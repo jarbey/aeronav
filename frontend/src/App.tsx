@@ -873,7 +873,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
               ) : voyageSubTab === 'finance' ? (
                 <VoyageFinance variant={variant} finance={finance} />
               ) : voyageSubTab === 'recap' ? (
-                <VoyageRecap voyage={voyage!} variant={variant} computed={computed} />
+                <VoyageRecap voyage={voyage!} />
               ) : null}
             </div>
           </div>
