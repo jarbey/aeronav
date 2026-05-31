@@ -95,7 +95,7 @@ export default function VoyageDashboard(props: DashboardProps) {
   const selectedAerodromeIcao = variant.route[selectedLegIdx];
 
   const mapBlock = (
-    <div style={{ flex: 1, position: 'relative', margin: 12, marginLeft: 6, marginRight: 6, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--hairline)', boxShadow: 'var(--shadow-card)', minWidth: 320 }}>
+    <div style={{ flex: 1, position: 'relative', margin: isTabletOrBelow ? 0 : 12, marginLeft: isTabletOrBelow ? 0 : 6, marginRight: isTabletOrBelow ? 0 : 6, borderRadius: isTabletOrBelow ? 0 : 6, overflow: 'hidden', border: isTabletOrBelow ? 'none' : '1px solid var(--hairline)', boxShadow: isTabletOrBelow ? 'none' : 'var(--shadow-card)', minWidth: 0 }}>
       <div className="map-stage">
         <VoyageMap
           variant={variant}
@@ -120,9 +120,9 @@ export default function VoyageDashboard(props: DashboardProps) {
     return (
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* Mobile/Tablet: view switcher bottom bar */}
-        <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {mobileView === 'list' && (
-            <div style={{ height: '100%', overflowY: 'auto', padding: 0 }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 0 }}>
               {/* Force full width on mobile — strip sidebar margins */}
               <style>{`.mobile-panel-full aside.card { width: 100% !important; margin: 0 !important; max-height: none !important; border-radius: 0 !important; border-left: none !important; border-right: none !important; }`}</style>
               <div className="mobile-panel-full">{voyagePanel}</div>
