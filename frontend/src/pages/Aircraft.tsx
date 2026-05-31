@@ -69,7 +69,7 @@ export default function AircraftPage({ currentUser, onAddAircraft, onEditAircraf
 
 function FleetGrid({ aircraft, models, onEdit }: { aircraft: Aircraft[]; models: Record<string, AircraftModel>; onEdit: (ac: Aircraft) => void }) {
   return (
-    <div className="scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 14, alignContent: 'start', paddingBottom: 16 }}>
+    <div className="scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(360px, 100%), 1fr))', gap: 14, alignContent: 'start', paddingBottom: 16 }}>
       {aircraft.map(ac => {
         const m = models[ac.model];
         const club = aeroclubById(ac.aeroclubId);
@@ -133,7 +133,7 @@ function FleetGrid({ aircraft, models, onEdit }: { aircraft: Aircraft[]; models:
 
 function ModelsGrid({ models, allAircraft, onEdit }: { models: Record<string, AircraftModel>; allAircraft: Aircraft[]; onEdit: (key: string, model: AircraftModel) => void }) {
   return (
-    <div className="scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12, alignContent: 'start', paddingBottom: 16 }}>
+    <div className="scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: 12, alignContent: 'start', paddingBottom: 16 }}>
       {Object.entries(models).map(([k, m]) => {
         const instances = allAircraft.filter(a => a.model === k);
         return (

@@ -59,7 +59,7 @@ export default function VoyagesList({ currentUser, activeVoyageId, onOpenVoyage,
         <button className="btn btn-primary" onClick={onNew}><i className="fa-solid fa-plus"/> Nouveau voyage</button>
       </div>
 
-      <div className="scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 14, alignContent: 'start', paddingBottom: 16 }}>
+      <div className="scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(380px, 100%), 1fr))', gap: 14, alignContent: 'start', paddingBottom: 16 }}>
         {rows.map(v => (
           <VoyageCard key={v.id} voyage={v} currentUser={currentUser}
             isActive={v.id === activeVoyageId}

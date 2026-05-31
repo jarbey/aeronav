@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Voyage, Variant, VoyageResult, LegResult, Aircraft, User, CrewAssignment } from '../types';
 import { acById, AC_MODELS, personById, userById, fmtHr, aeroclubById, PEOPLE } from '../data/mockData';
+import { useIsTabletOrBelow, useIsMobile } from '../hooks/useBreakpoint';
 
 // Extract short display code from a variant ID (e.g. "var-A-nantes-propriano" → "A")
 function variantCode(id: string): string {
@@ -51,6 +52,11 @@ export default function VoyageDashboard(props: DashboardProps) {
     onReplaceLeg, onCrewEdit, onBagsEdit, onFuelEdit,
     onVariantSelect, onVariantDuplicate, onVariantDelete, onVariantRename, onVariantReorder,
     onStopMinChange, onTaxiChange, onAltChange, onAutoAssign, onDeleteLeg, onDepartureTimeChange, onWaypointsChange, onSplitLeg, onAddStop, onReverseRoute, onShare, onSettings, onRenameVoyage, currentUser } = props;
+
+  const isTabletOrBelow = useIsTabletOrBelow();
+  const isMobile = useIsMobile();
+  // On tablet/mobile, track which panel is visible: 'list' | 'map' | 'detail'
+  const [mobileView, setMobileView] = useState<'list' | 'map' | 'detail'>('map');
 
   const voyagePanel = (
     <VoyagePanel
@@ -104,6 +110,50 @@ export default function VoyageDashboard(props: DashboardProps) {
       </div>
     </div>
   );
+
+  // On tablet/mobile: when a leg is selected, auto-switch to detail view
+  useEffect(() => {
+    if (isTabletOrBelow && selectedLeg) setMobileView('detail');
+  }, [selectedLegIdx, isTabletOrBelow]);
+
+  if (isTabletOrBelow) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {/* Mobile/Tablet: view switcher bottom bar */}
+        <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+          {mobileView === 'list' && <div style={{ height: '100%', overflowY: 'auto' }}>{voyagePanel}</div>}
+          {mobileView === 'map'  && mapBlock}
+          {mobileView === 'detail' && (selectedLeg
+            ? <div style={{ height: '100%', overflowY: 'auto' }}>{legDetail}</div>
+            : <div style={{ height: '100%', overflowY: 'auto' }}>{voyagePanel}</div>
+          )}
+        </div>
+        {/* Bottom navigation */}
+        <div style={{
+          display: 'flex', borderTop: '1px solid var(--hairline)',
+          background: 'var(--surface-2)', flexShrink: 0,
+        }}>
+          {([
+            ['list',   'fa-list',        isMobile ? 'Étapes' : 'Étapes'],
+            ['map',    'fa-map',          'Carte'],
+            ['detail', 'fa-plane-arrival', 'Branche'],
+          ] as [typeof mobileView, string, string][]).map(([view, icon, label]) => (
+            <button key={view} onClick={() => setMobileView(view)} style={{
+              flex: 1, padding: '10px 4px 8px', border: 0, cursor: 'pointer',
+              background: mobileView === view ? 'var(--paper)' : 'transparent',
+              color: mobileView === view ? 'var(--aero-red)' : 'var(--ink-3)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              borderTop: `2px solid ${mobileView === view ? 'var(--aero-red)' : 'transparent'}`,
+              fontFamily: 'inherit',
+            }}>
+              <i className={`fa-solid ${icon}`} style={{ fontSize: 16 }}/>
+              <span style={{ fontSize: 9.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ height: '100%', display: 'flex' }}>
@@ -288,7 +338,7 @@ function VoyagePanel({ voyage, variant, computed, selectedLegIdx, onSelectLeg,
   }
 
   return (
-    <aside className="card" style={{ width: 328, margin: 12, marginRight: 6, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - var(--topbar-h) - 24px)', overflow: 'hidden', flexShrink: 0 }}>
+    <aside className="card" style={{ width: 'min(328px, 100%)', margin: 12, marginRight: 6, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - var(--topbar-h) - 24px)', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid var(--hairline-soft)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
           <div className="cap-sm">Voyage</div>
@@ -586,7 +636,7 @@ function LegDetail({ leg, legIdx, variant, voyagePeopleIds, onTaxiChange, onAltC
     .filter((p): p is import('../types').Person => !!p);
 
   return (
-    <aside className="scroll" style={{ width: 480, margin: 12, marginLeft: 6, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100vh - var(--topbar-h) - 24px)', flexShrink: 0 }}>
+    <aside className="scroll" style={{ width: 'min(480px, 100%)', margin: 12, marginLeft: 6, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100vh - var(--topbar-h) - 24px)', flexShrink: 0 }}>
       <div className="card" style={{ padding: '12px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--ink)', color: '#fff8df', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700 }}>{legIdx + 1}</span>
