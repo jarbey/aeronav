@@ -45,18 +45,15 @@ export default function VoyageSubTabs({ subTab, onSubTab, voyage, variant, finan
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 0,
-      padding: '0 16px',
+      padding: '0 8px',
       background: 'var(--surface-2)',
       borderBottom: '1px solid var(--hairline)',
+      overflowX: 'auto', scrollbarWidth: 'none',
     }}>
       <SubTabBtn active={subTab === 'map'} onClick={() => onSubTab('map')} icon="fa-map" label="Carte & branches"/>
       <SubTabBtn active={subTab === 'people'} onClick={() => onSubTab('people')} icon="fa-users" label="Personnes" badge={participantCount}/>
       <SubTabBtn active={subTab === 'finance'} onClick={() => onSubTab('finance')} icon="fa-coins" label="Finance" badge={`${new Intl.NumberFormat('fr-FR').format(Math.round(finance.totals.total))}€`}/>
       <SubTabBtn active={subTab === 'recap'} onClick={() => onSubTab('recap')} icon="fa-list-check" label="Récapitulatif"/>
-      <div style={{ flex: 1 }}/>
-      <span style={{ fontSize: 11, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span className="mono">{voyage.title}</span>
-      </span>
     </div>
   );
 }

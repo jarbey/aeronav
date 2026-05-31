@@ -2,6 +2,7 @@ import React from 'react';
 import type { Voyage, Variant, VoyageResult } from '../types';
 import { acById, personById, AC_MODELS, fmtHr, computeVoyage } from '../data/mockData';
 import { useAerodromes } from '../api/aerodromes';
+import { useIsMobile } from '../hooks/useBreakpoint';
 
 function parseTime(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
@@ -34,6 +35,7 @@ interface Props {
 
 export default function VoyageRecap({ voyage }: Props) {
   const { data: aerodromes } = useAerodromes();
+  const isMobile = useIsMobile();
 
   const acCount = voyage.aircraftIds.length;
 
@@ -55,20 +57,21 @@ export default function VoyageRecap({ voyage }: Props) {
 
       {/* Header voyage */}
       <div style={{
-        background: 'var(--ink)', color: '#fff', borderRadius: 10,
-        padding: '16px 20px', marginBottom: 24,
-        display: 'flex', flexWrap: 'wrap', gap: '20px 40px', alignItems: 'center',
+        background: 'var(--ink)', color: '#fff', borderRadius: isMobile ? 6 : 10,
+        padding: isMobile ? '10px 14px' : '16px 20px', marginBottom: isMobile ? 12 : 24,
+        display: 'flex', flexWrap: 'wrap', gap: isMobile ? '8px 16px' : '20px 40px', alignItems: 'center',
       }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.55, marginBottom: 2 }}>Voyage</div>
-          <div style={{ fontSize: 17, fontWeight: 700 }}>{voyage.title}</div>
+        <div style={{ flex: isMobile ? '1 1 100%' : undefined }}>
+          <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.55, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            {voyage.title}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap' }}>
-          <Stat label="Vol total" value={fmtHr(totalFlightMin)} />
-          <Stat label="Escales" value={fmtHr(totalStopMin)} />
-          <Stat label="Durée totale" value={fmtHr(totalMin)} />
+        <div style={{ display: 'flex', gap: isMobile ? '12px' : '28px', flexWrap: 'wrap' }}>
+          <Stat label="Vol" value={fmtHr(totalFlightMin)} />
+          {!isMobile && <Stat label="Escales" value={fmtHr(totalStopMin)} />}
+          <Stat label="Total" value={fmtHr(totalMin)} />
           <Stat label="Avions" value={String(acCount)} />
-          <Stat label="Participants" value={String(uniquePeople)} />
+          {!isMobile && <Stat label="Participants" value={String(uniquePeople)} />}
           <Stat label="Étapes" value={String(voyage.variants.length)} />
         </div>
       </div>
@@ -81,17 +84,19 @@ export default function VoyageRecap({ voyage }: Props) {
           variant={va}
           computed={allComputed[vaIdx]}
           aircraftIds={voyage.aircraftIds}
+          compact={isMobile}
         />
       ))}
     </div>
   );
 }
 
-function VariantSection({ variantIdx, variant, computed, aircraftIds }: {
+function VariantSection({ variantIdx, variant, computed, aircraftIds, compact }: {
   variantIdx: number;
   variant: Variant;
   computed: VoyageResult;
   aircraftIds: string[];
+  compact?: boolean;
 }) {
   const hasTimes = !!variant.departureTime;
   const legTimes: { dep: number; arr: number }[] = [];
@@ -203,15 +208,21 @@ function VariantSection({ variantIdx, variant, computed, aircraftIds }: {
                       ))}
                     </div>
 
-                    {/* TOW / MTOW · Départ · Brûlé · Restant · Durée — tout sur une ligne */}
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexShrink: 0, fontSize: 11 }} className="mono">
-                      <span style={{ color: towColor(res.tow, mtow), fontWeight: 700 }} title="TOW / MTOW">
-                        {Math.round(res.tow)}<span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>/{Math.round(mtow)}</span> kg
-                      </span>
-                      <span style={{ color: 'var(--ink-3)' }}>·</span>
+                    {/* Indicateurs sur une ligne — brûlé masqué en mode compact */}
+                    <div style={{ display: 'flex', gap: compact ? 8 : 12, alignItems: 'center', flexShrink: 0, fontSize: 11 }} className="mono">
+                      {!compact && (
+                        <span style={{ color: towColor(res.tow, mtow), fontWeight: 700 }} title="TOW / MTOW">
+                          {Math.round(res.tow)}<span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>/{Math.round(mtow)}</span> kg
+                        </span>
+                      )}
+                      {!compact && <span style={{ color: 'var(--ink-3)' }}>·</span>}
                       <span title="Carb. départ">{Math.round(fuelLoadL)} L</span>
-                      <span style={{ color: 'var(--ink-4)' }}>→</span>
-                      <span title="Brûlé">-{Math.round(res.burnL)} L</span>
+                      {!compact && (
+                        <>
+                          <span style={{ color: 'var(--ink-4)' }}>→</span>
+                          <span title="Brûlé">-{Math.round(res.burnL)} L</span>
+                        </>
+                      )}
                       <span style={{ color: 'var(--ink-4)' }}>→</span>
                       <span title="Restant" style={{ color: fuelLeftColor(res.fuelLeftL, model?.burnLh || 1), fontWeight: 700 }}>{Math.round(res.fuelLeftL)} L</span>
                       <span style={{ color: 'var(--ink-3)' }}>·</span>

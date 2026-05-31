@@ -121,11 +121,19 @@ export default function VoyageDashboard(props: DashboardProps) {
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         {/* Mobile/Tablet: view switcher bottom bar */}
         <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
-          {mobileView === 'list' && <div style={{ height: '100%', overflowY: 'auto' }}>{voyagePanel}</div>}
-          {mobileView === 'map'  && mapBlock}
-          {mobileView === 'detail' && (selectedLeg
-            ? <div style={{ height: '100%', overflowY: 'auto' }}>{legDetail}</div>
-            : <div style={{ height: '100%', overflowY: 'auto' }}>{voyagePanel}</div>
+          {mobileView === 'list' && (
+            <div style={{ height: '100%', overflowY: 'auto', padding: 0 }}>
+              {/* Force full width on mobile — strip sidebar margins */}
+              <style>{`.mobile-panel-full aside.card { width: 100% !important; margin: 0 !important; max-height: none !important; border-radius: 0 !important; border-left: none !important; border-right: none !important; }`}</style>
+              <div className="mobile-panel-full">{voyagePanel}</div>
+            </div>
+          )}
+          {mobileView === 'map' && mapBlock}
+          {mobileView === 'detail' && (
+            <div style={{ height: '100%', overflowY: 'auto' }}>
+              <style>{`.mobile-panel-full aside { width: 100% !important; margin: 0 !important; max-height: none !important; }`}</style>
+              <div className="mobile-panel-full">{selectedLeg ? legDetail : voyagePanel}</div>
+            </div>
           )}
         </div>
         {/* Bottom navigation */}
