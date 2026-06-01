@@ -43,6 +43,28 @@ export default function AircraftForm({ aircraft, onClose, onSave, onDelete }: Pr
         <Field label="Masse à vide (fiche de pesée)" hint="kg — propre à cet appareil">
           <UnitInput value={draft.massEmptyKg ?? 0} unit="kg" onChange={v => set('massEmptyKg', v)}/>
         </Field>
+        <Field label="Consommation réelle"
+          hint={m ? `Modèle : ${m.burnLh} L/h — laisser vide pour utiliser la valeur modèle` : 'Laisser vide pour utiliser la valeur modèle'}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="number" min={0} step={0.5} className="input"
+              style={{ flex: 1 }}
+              placeholder={m ? String(m.burnLh) : '—'}
+              value={draft.burnLhOverride != null ? String(draft.burnLhOverride) : ''}
+              onChange={e => {
+                const v = e.target.value;
+                set('burnLhOverride', v === '' ? null : parseFloat(v));
+              }}
+            />
+            <span style={{ color: 'var(--ink-3)', fontSize: 11 }}>L/h</span>
+            {draft.burnLhOverride != null && (
+              <button className="btn btn-sm btn-ghost" title="Réinitialiser"
+                onClick={() => set('burnLhOverride', null)}>
+                <i className="fa-solid fa-rotate-left"/>
+              </button>
+            )}
+          </div>
+        </Field>
         <Field label="Couleur d'identification">
           <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
             {COLOR_OPTIONS.map(c => (
@@ -73,7 +95,7 @@ export default function AircraftForm({ aircraft, onClose, onSave, onDelete }: Pr
               <KV k="Carb." v={m.fuelType}/>
               <KV k="Sièges" v={`${m.seats} pl.`}/>
               <KV k="Croisière" v={`${m.cruiseKt} kt`}/>
-              <KV k="Conso." v={`${m.burnLh} L/h`}/>
+              <KV k="Conso." v={`${m.burnLh} L/h`} dim={draft.burnLhOverride != null}/>
               <KV k="Capacité" v={`${m.fuelCapL} L`}/>
               <KV k="MTOW" v={`${m.mtowKg} kg`}/>
               <KV k="Tarif" v={`${m.hourlyEUR} €/h`}/>

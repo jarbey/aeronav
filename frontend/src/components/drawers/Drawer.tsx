@@ -142,11 +142,11 @@ export function UnitInput({ value, unit, onChange }: { value: number; unit: stri
   );
 }
 
-export function KV({ k, v }: { k: string; v: string }) {
+export function KV({ k, v, dim }: { k: string; v: string; dim?: boolean }) {
   return (
     <div>
       <div style={{ fontSize: 9.5, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{k}</div>
-      <div className="mono" style={{ fontWeight: 600 }}>{v}</div>
+      <div className="mono" style={{ fontWeight: 600, opacity: dim ? 0.4 : 1, textDecoration: dim ? 'line-through' : 'none' }}>{v}</div>
     </div>
   );
 }

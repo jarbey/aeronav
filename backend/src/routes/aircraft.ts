@@ -35,6 +35,7 @@ const aircraftBodySchema = z.object({
   modelId: z.string().min(1),
   color: z.string().min(1),
   massEmptyKg: z.number().nonnegative().default(0),
+  burnLhOverride: z.number().positive().nullable().optional(),
   notes: z.string().optional(),
 });
 

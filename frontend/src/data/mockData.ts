@@ -153,7 +153,8 @@ export function computeLeg(legIdx: number, variant: Variant, voyageAircraftIds: 
     const taxiIn = variant.taxiInMin?.[legIdx] ?? 10;
     const durMin = cruiseHr * 60 + taxiOut + taxiIn;
     const durHr = durMin / 60;
-    const burnL = durHr * m.burnLh;
+    const effectiveBurnLh = ac.burnLhOverride ?? m.burnLh;
+    const burnL = durHr * effectiveBurnLh;
     const fuelLeftL = Math.max(0, fuelL - burnL);
     const fuelBurnKg = burnL * fuelDensity;
     const ldw = tow - fuelBurnKg;
@@ -168,7 +169,7 @@ export function computeLeg(legIdx: number, variant: Variant, voyageAircraftIds: 
       tow, ldw, peopleMass, bagMass, fuelKg, fuelLDestKg: fuelLeftL * fuelDensity,
       mtow: m.mtowKg, mtowExceeded: tow > m.mtowKg,
       mldw: m.mldwKg, mldwExceeded: ldw > m.mldwKg,
-      fuelOK: (fuelLeftL / m.burnLh * 60) >= 30,
+      fuelOK: (fuelLeftL / effectiveBurnLh * 60) >= 30,
       fuelReserve: fuelLeftL,
       compatRunway, compatFuel, cdbOK, paxOK,
       crew, peopleIds, bag,

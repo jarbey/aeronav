@@ -783,7 +783,8 @@ function AircraftLegCard({ ac, legIdx, legResult, onCrewEdit, onBagsEdit, onFuel
   const towCls = towMargin < 20 ? 'danger' : (towMargin < 50 ? 'warn' : '');
   const fuelTotal = p.fuelReserve + p.burnL;
   const fuelPct = Math.min(1, p.fuelLeftL / m.fuelCapL);
-  const fuelEndurMin = p.fuelLeftL / m.burnLh * 60;
+  const effectiveBurnLh = ac.burnLhOverride ?? m.burnLh;
+  const fuelEndurMin = p.fuelLeftL / effectiveBurnLh * 60;
   const fuelCls = fuelEndurMin < 30 ? 'danger' : (fuelEndurMin < 60 ? 'warn' : '');
   const paxSeats = m.seats - 1;
 
@@ -859,7 +860,7 @@ function AircraftLegCard({ ac, legIdx, legResult, onCrewEdit, onBagsEdit, onFuel
             return (<>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, marginBottom: 3, color, fontWeight: bold }}>
                 <span className="cap-sm" style={{ fontSize: 9, color: 'inherit', fontWeight: 'inherit' }}>Carb. à l'arrivée</span>
-                <span className="mono">{p.fuelLeftL.toFixed(0)}L<span style={{ opacity: 0.6 }}> / {fmtHr(p.fuelLeftL / m.burnLh * 60)}</span></span>
+                <span className="mono">{p.fuelLeftL.toFixed(0)}L<span style={{ opacity: 0.6 }}> / {fmtHr(p.fuelLeftL / effectiveBurnLh * 60)}</span></span>
               </div>
               <div className="bar"><span className={fuelCls} style={{ width: `${fuelPct * 100}%` }}/></div>
             </>);

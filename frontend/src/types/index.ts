@@ -60,6 +60,7 @@ export interface Aircraft {
   callsign: string;
   aeroclubId: string;
   massEmptyKg: number;
+  burnLhOverride?: number | null;
   notes: string;
 }
 
