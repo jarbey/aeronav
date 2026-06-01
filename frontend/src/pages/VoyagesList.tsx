@@ -24,11 +24,12 @@ interface VoyagesListProps {
   activeVoyageId: string | null;
   onOpenVoyage: (id: string) => void;
   onShare: (v: Voyage) => void;
+  onDuplicate: (id: string, newTitle: string) => void;
   onNew: () => void;
   version?: number;
 }
 
-export default function VoyagesList({ currentUser, activeVoyageId, onOpenVoyage, onShare, onNew, version }: VoyagesListProps) {
+export default function VoyagesList({ currentUser, activeVoyageId, onOpenVoyage, onShare, onDuplicate, onNew, version }: VoyagesListProps) {
   const [filter, setFilter] = useState<'all' | 'mine' | 'shared'>('all');
   const [q, setQ] = useState('');
   void version;
@@ -65,6 +66,7 @@ export default function VoyagesList({ currentUser, activeVoyageId, onOpenVoyage,
             isActive={v.id === activeVoyageId}
             onOpen={() => onOpenVoyage(v.id)}
             onShare={() => onShare(v)}
+            onDuplicate={(newTitle) => onDuplicate(v.id, newTitle)}
           />
         ))}
         {rows.length === 0 && (
@@ -78,10 +80,13 @@ export default function VoyagesList({ currentUser, activeVoyageId, onOpenVoyage,
   );
 }
 
-function VoyageCard({ voyage, currentUser, isActive, onOpen, onShare }: {
+function VoyageCard({ voyage, currentUser, isActive, onOpen, onShare, onDuplicate }: {
   voyage: Voyage; currentUser: User; isActive: boolean;
   onOpen: () => void; onShare: () => void;
+  onDuplicate: (newTitle: string) => void;
 }) {
+  const [duplicating, setDuplicating] = useState(false);
+  const [dupTitle, setDupTitle] = useState('');
   const meta = STATUS_META[voyage.status] || STATUS_META.draft;
   const owner = userById(voyage.ownerId);
   const isOwner = voyage.ownerId === currentUser.id;
@@ -156,12 +161,46 @@ function VoyageCard({ voyage, currentUser, isActive, onOpen, onShare }: {
             )}
           </div>
         )}
+        <button className="btn btn-sm btn-ghost" title="Dupliquer ce voyage"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDupTitle(`Copie de ${voyage.title}`);
+            setDuplicating(true);
+          }}>
+          <i className="fa-solid fa-copy"/>
+        </button>
         {isOwner && (
           <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); onShare(); }}>
             <i className="fa-solid fa-share-nodes"/> Partager
           </button>
         )}
       </div>
+
+      {duplicating && (
+        <div onClick={e => e.stopPropagation()}
+          style={{ padding: '10px 14px', borderTop: '1px solid var(--hairline-soft)', background: 'var(--surface-2)', display: 'flex', gap: 6 }}>
+          <input
+            autoFocus
+            className="input"
+            style={{ flex: 1, fontSize: 12 }}
+            placeholder="Nom du nouveau voyage"
+            value={dupTitle}
+            onChange={e => setDupTitle(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { onDuplicate(dupTitle); setDuplicating(false); }
+              if (e.key === 'Escape') setDuplicating(false);
+            }}
+          />
+          <button className="btn btn-sm btn-primary"
+            onClick={() => { onDuplicate(dupTitle); setDuplicating(false); }}>
+            <i className="fa-solid fa-check"/> Dupliquer
+          </button>
+          <button className="btn btn-sm btn-ghost"
+            onClick={() => setDuplicating(false)}>
+            <i className="fa-solid fa-xmark"/>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

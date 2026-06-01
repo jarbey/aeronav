@@ -728,6 +728,63 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
       alert('Impossible de créer le voyage. Vérifiez votre connexion et réessayez.');
     }
   }
+  async function duplicateVoyage(sourceId: string, newTitle: string) {
+    const source = VOYAGES.find(v => v.id === sourceId);
+    if (!source) return;
+    const tempId = `vy-dup-${Date.now()}`;
+    const today = new Date().toISOString().slice(0, 10);
+    const duplicate: Voyage = {
+      ...source,
+      id: tempId,
+      title: newTitle.trim() || `Copie de ${source.title}`,
+      date: today,
+      status: 'draft',
+      ownerId: currentUser.id,
+      sharedWith: [],
+    };
+    VOYAGES.unshift(duplicate);
+    setActiveVoyageId(tempId);
+    setTab('voyage');
+    bump();
+    try {
+      const saved = await apiFetch<{ id: string }>('/voyages', {
+        method: 'POST',
+        body: JSON.stringify({ title: duplicate.title, date: duplicate.date, status: 'draft' }),
+      });
+      // Save all variants
+      let firstVariantId = '';
+      for (const va of source.variants) {
+        const sv = await apiFetch<{ id: string }>(`/voyages/${saved.id}/variants`, {
+          method: 'POST',
+          body: JSON.stringify({
+            label: va.label, weather: va.weather, tag: va.tag,
+            route: va.route, stopMin: va.stopMin, cruiseAltFt: va.cruiseAltFt,
+            taxiOutMin: va.taxiOutMin ?? [], taxiInMin: va.taxiInMin ?? [],
+            crewsByLeg: va.crewsByLeg, fuelLoadL: va.fuelLoadL, bagsByLeg: va.bagsByLeg,
+            personOverrides: va.personOverrides || {}, waypoints: va.waypoints ?? [],
+          }),
+        });
+        if (!firstVariantId) firstVariantId = sv.id;
+      }
+      await apiFetch(`/voyages/${saved.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ aircraftIds: source.aircraftIds, peopleIds: source.peopleIds }),
+      });
+      const idx = VOYAGES.findIndex(v => v.id === tempId);
+      if (idx >= 0) {
+        VOYAGES[idx] = { ...duplicate, id: saved.id, activeVariantId: firstVariantId };
+      }
+      setActiveVoyageId(saved.id);
+      queryClient.invalidateQueries({ queryKey: ['voyages'] });
+      bump();
+    } catch (e) {
+      console.error('duplicateVoyage failed', e);
+      const idx = VOYAGES.findIndex(v => v.id === tempId);
+      if (idx >= 0) VOYAGES.splice(idx, 1);
+      bump();
+      alert('Impossible de dupliquer le voyage.');
+    }
+  }
   function deleteVoyageById(id: string) {
     const idx = VOYAGES.findIndex(v => v.id === id);
     if (idx < 0) return;
@@ -817,6 +874,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
             activeVoyageId={activeVoyageId}
             onOpenVoyage={(id) => { setActiveVoyageId(id); setTab('voyage'); }}
             onShare={(v) => setShareDialogId(v.id)}
+            onDuplicate={duplicateVoyage}
             onNew={() => setNewVoyageOpen(true)}
             version={version}
           />
