@@ -61,6 +61,7 @@ export interface Aircraft {
   aeroclubId: string;
   massEmptyKg: number;
   burnLhOverride?: number | null;
+  cruiseKtOverride?: number | null;
   notes: string;
 }
 

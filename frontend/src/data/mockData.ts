@@ -148,7 +148,8 @@ export function computeLeg(legIdx: number, variant: Variant, voyageAircraftIds: 
     const fuelDensity = m.fuelType.includes('Jet') ? 0.84 : 0.72;
     const fuelKg = fuelL * fuelDensity;
     const tow = ac.massEmptyKg + peopleMass + bagMass + fuelKg;
-    const cruiseHr = distance / m.cruiseKt;
+    const effectiveCruiseKt = ac.cruiseKtOverride ?? m.cruiseKt;
+    const cruiseHr = distance / effectiveCruiseKt;
     const taxiOut = variant.taxiOutMin?.[legIdx] ?? 10;
     const taxiIn = variant.taxiInMin?.[legIdx] ?? 10;
     const durMin = cruiseHr * 60 + taxiOut + taxiIn;

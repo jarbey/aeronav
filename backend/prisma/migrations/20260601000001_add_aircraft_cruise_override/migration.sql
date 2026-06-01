@@ -1,0 +1,1 @@
+ALTER TABLE "aircraft" ADD COLUMN IF NOT EXISTS "cruiseKtOverride" DOUBLE PRECISION;

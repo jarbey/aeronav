@@ -90,6 +90,7 @@ export function serializeAircraft(a: PrismaAircraft) {
     color: a.color,
     massEmptyKg: a.massEmptyKg,
     burnLhOverride: a.burnLhOverride ?? null,
+    cruiseKtOverride: a.cruiseKtOverride ?? null,
     notes: a.notes ?? '',
   };
 }

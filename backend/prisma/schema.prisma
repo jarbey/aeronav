@@ -101,9 +101,10 @@ model Aircraft {
   modelId     String
   aeroclubId  String
   color       String
-  massEmptyKg     Float   @default(0)
-  burnLhOverride  Float?
-  notes           String?
+  massEmptyKg       Float   @default(0)
+  burnLhOverride    Float?
+  cruiseKtOverride  Float?
+  notes             String?
 
   model    AircraftModel @relation(fields: [modelId], references: [id])
   aeroclub Aeroclub      @relation(fields: [aeroclubId], references: [id])
