@@ -74,6 +74,21 @@ export default function AircraftForm({ aircraft, onClose, onSave, onDelete }: Pr
               )}
             </div>
           </Field>
+          <Field label="Capacité carburant réelle"
+            hint={m ? `Modèle : ${m.fuelCapL} L` : 'Laisser vide → valeur modèle'}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input type="number" min={0} step={5} className="input"
+                placeholder={m ? String(m.fuelCapL) : '—'}
+                value={draft.fuelCapLOverride != null ? String(draft.fuelCapLOverride) : ''}
+                onChange={e => set('fuelCapLOverride', e.target.value === '' ? null : parseFloat(e.target.value))}/>
+              <span style={{ color: 'var(--ink-3)', fontSize: 11, whiteSpace: 'nowrap' }}>L</span>
+              {draft.fuelCapLOverride != null && (
+                <button className="btn btn-sm btn-ghost" title="Réinitialiser" onClick={() => set('fuelCapLOverride', null)}>
+                  <i className="fa-solid fa-rotate-left"/>
+                </button>
+              )}
+            </div>
+          </Field>
         </Grid>
         <Field label="Couleur d'identification">
           <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
@@ -106,7 +121,7 @@ export default function AircraftForm({ aircraft, onClose, onSave, onDelete }: Pr
               <KV k="Sièges" v={`${m.seats} pl.`}/>
               <KV k="Croisière" v={`${m.cruiseKt} kt`} dim={draft.cruiseKtOverride != null}/>
               <KV k="Conso." v={`${m.burnLh} L/h`} dim={draft.burnLhOverride != null}/>
-              <KV k="Capacité" v={`${m.fuelCapL} L`}/>
+              <KV k="Capacité" v={`${m.fuelCapL} L`} dim={draft.fuelCapLOverride != null}/>
               <KV k="MTOW" v={`${m.mtowKg} kg`}/>
               <KV k="Tarif" v={`${m.hourlyEUR} €/h`}/>
             </div>

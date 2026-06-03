@@ -83,6 +83,10 @@ export function activeVariant(voyage: Voyage): Variant {
 }
 
 // --- Navigation helpers ---
+export function effectiveFuelCapL(ac: Aircraft): number {
+  return ac.fuelCapLOverride ?? AC_MODELS[ac.model]?.fuelCapL ?? 80;
+}
+
 export function distNM(c1: [number, number], c2: [number, number]): number {
   const toRad = (d: number) => d * Math.PI / 180;
   const R = 3440.065;

@@ -62,6 +62,7 @@ export interface Aircraft {
   massEmptyKg: number;
   burnLhOverride?: number | null;
   cruiseKtOverride?: number | null;
+  fuelCapLOverride?: number | null;
   notes: string;
 }
 

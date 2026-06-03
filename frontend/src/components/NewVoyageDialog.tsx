@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { User, Voyage, Aerodrome } from '../types';
-import { USERS, aeroclubById, aircraftForUser, adByIcao, acById, AC_MODELS, distNM } from '../data/mockData';
+import { USERS, aeroclubById, aircraftForUser, adByIcao, acById, AC_MODELS, distNM, effectiveFuelCapL } from '../data/mockData';
 import { useAerodromes } from '../api/aerodromes';
 import { UserAvatar } from './UserAvatar';
 
@@ -152,7 +152,7 @@ export default function NewVoyageDialog({ currentUser, onClose, onCreate }: Prop
     const fuelLoadL = [acSel.reduce<Record<string, number>>((acc, aid) => {
       const ac = acById(aid);
       const m = ac && AC_MODELS[ac.model];
-      acc[aid] = m ? Math.floor(m.fuelCapL * 0.85) : 80;
+      const ac__ = acById(aid); acc[aid] = ac__ ? Math.floor(effectiveFuelCapL(ac__) * 0.85) : 80;
       return acc;
     }, {})];
     const bagsByLeg = [acSel.reduce<Record<string, { count: number; unitKg: number }>>((acc, aid) => { acc[aid] = { count: 0, unitKg: 12 }; return acc; }, {})];

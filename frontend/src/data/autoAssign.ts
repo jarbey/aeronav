@@ -14,7 +14,7 @@
  */
 
 import type { Voyage, Variant, Aircraft, PersonEffective, CrewsByLeg, FuelLoadByLeg, Aerodrome } from '../types';
-import { acById, personEffective, adByIcao, distNM, AC_MODELS } from './mockData';
+import { acById, personEffective, adByIcao, distNM, AC_MODELS, effectiveFuelCapL } from './mockData';
 
 export interface AutoAssignResult {
   crewsByLeg: CrewsByLeg;
@@ -200,7 +200,8 @@ export function autoAssign(
       }
 
       // Final fuel: min_fuel capped by capacity and MTOW headroom
-      const rawFuel = Math.min(m.fuelCapL, Math.max(minFuelL, Math.min(maxFuelForMtow, m.fuelCapL)));
+      const cap = effectiveFuelCapL(ac);
+      const rawFuel = Math.min(cap, Math.max(minFuelL, Math.min(maxFuelForMtow, cap)));
       // Round to nearest 5 L
       legFuel[ac.id] = Math.max(0, Math.round(rawFuel / 5) * 5);
     }

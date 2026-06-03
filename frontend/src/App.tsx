@@ -9,7 +9,7 @@ import {
   VOYAGES, PEOPLE, AIRCRAFT, AC_MODELS, AERODROMES, AEROCLUBS, USERS,
   voyagesForUser, aircraftForUser, aerodromesForUser, activeVariant,
   computeVoyage, computeFinance, adByIcao, acById, personById,
-  userById, aeroclubById,
+  userById, aeroclubById, effectiveFuelCapL,
 } from './data/mockData';
 import { autoAssign } from './data/autoAssign';
 import { apiFetch } from './api/client';
@@ -384,7 +384,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
       variants: v.variants.map(va => ({
         ...va,
         crewsByLeg: va.crewsByLeg.map(leg => leg[full.id] ? leg : { ...leg, [full.id]: { cdb: null, pax: [] } }),
-        fuelLoadL: va.fuelLoadL.map(leg => leg[full.id] != null ? leg : { ...leg, [full.id]: AC_MODELS[full.model]?.fuelCapL || 80 }),
+        fuelLoadL: va.fuelLoadL.map(leg => leg[full.id] != null ? leg : { ...leg, [full.id]: effectiveFuelCapL(full) }),
         bagsByLeg: va.bagsByLeg.map(leg => leg[full.id] ? leg : { ...leg, [full.id]: { count: 0, unitKg: 12 } }),
       })),
     }));
@@ -809,7 +809,8 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
     const fuelLoadL = Array.from({ length: numLegs }, (_, i) => {
       const leg: Record<string, number> = {};
       aircraftIds.forEach(acId => {
-        leg[acId] = (va.fuelLoadL[i] && va.fuelLoadL[i][acId] != null) ? va.fuelLoadL[i][acId] : (AC_MODELS[acById(acId)?.model || '']?.fuelCapL || 80);
+        const ac_ = acById(acId);
+        leg[acId] = (va.fuelLoadL[i] && va.fuelLoadL[i][acId] != null) ? va.fuelLoadL[i][acId] : (ac_ ? effectiveFuelCapL(ac_) : 80);
       });
       return leg;
     });
@@ -1058,7 +1059,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
         <FuelPicker
           anchor={editor.anchor} ac={editor.ac}
           fuelL={variant.fuelLoadL[editor.legIdx]?.[editor.ac.id] || 0}
-          fuelCapL={AC_MODELS[editor.ac.model]?.fuelCapL || 100}
+          fuelCapL={effectiveFuelCapL(editor.ac)}
           onChange={(fuelL: number) => { setFuel(editor.legIdx, editor.ac.id, fuelL); }}
           onClose={() => setEditor(null)} />
       )}

@@ -782,7 +782,8 @@ function AircraftLegCard({ ac, legIdx, legResult, onCrewEdit, onBagsEdit, onFuel
   const towMargin = m.mtowKg - p.tow;
   const towCls = towMargin < 20 ? 'danger' : (towMargin < 50 ? 'warn' : '');
   const fuelTotal = p.fuelReserve + p.burnL;
-  const fuelPct = Math.min(1, p.fuelLeftL / m.fuelCapL);
+  const fuelCap = ac.fuelCapLOverride ?? m.fuelCapL;
+  const fuelPct = Math.min(1, p.fuelLeftL / fuelCap);
   const effectiveBurnLh = ac.burnLhOverride ?? m.burnLh;
   const fuelEndurMin = p.fuelLeftL / effectiveBurnLh * 60;
   const fuelCls = fuelEndurMin < 30 ? 'danger' : (fuelEndurMin < 60 ? 'warn' : '');

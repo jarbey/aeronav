@@ -104,6 +104,7 @@ model Aircraft {
   massEmptyKg       Float   @default(0)
   burnLhOverride    Float?
   cruiseKtOverride  Float?
+  fuelCapLOverride  Float?
   notes             String?
 
   model    AircraftModel @relation(fields: [modelId], references: [id])

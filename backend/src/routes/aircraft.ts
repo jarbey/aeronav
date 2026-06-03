@@ -37,6 +37,7 @@ const aircraftBodySchema = z.object({
   massEmptyKg: z.number().nonnegative().default(0),
   burnLhOverride: z.number().positive().nullable().optional(),
   cruiseKtOverride: z.number().positive().nullable().optional(),
+  fuelCapLOverride: z.number().positive().nullable().optional(),
   notes: z.string().optional(),
 });
 
