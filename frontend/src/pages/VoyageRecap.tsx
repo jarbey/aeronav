@@ -208,25 +208,48 @@ function VariantSection({ variantIdx, variant, computed, aircraftIds, compact }:
                       ))}
                     </div>
 
-                    {/* Indicateurs sur une ligne — brûlé masqué en mode compact */}
-                    <div style={{ display: 'flex', gap: compact ? 8 : 12, alignItems: 'center', flexShrink: 0, fontSize: 11 }} className="mono">
-                      {!compact && (
-                        <span style={{ color: towColor(res.tow, mtow), fontWeight: 700 }} title="TOW / MTOW">
-                          {Math.round(res.tow)}<span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>/{Math.round(mtow)}</span> kg
-                        </span>
-                      )}
-                      {!compact && <span style={{ color: 'var(--ink-3)' }}>·</span>}
-                      <span title="Carb. départ">{Math.round(fuelLoadL)} L</span>
-                      {!compact && (
+                    {/* Indicateurs — décomposition masse sur desktop, compact sur mobile */}
+                    <div style={{ display: 'flex', gap: compact ? 8 : 10, alignItems: 'center', flexShrink: 0, fontSize: 11 }} className="mono">
+                      {!compact ? (
+                        /* Desktop : décomposition MV + Pax + Bag + Carb = TOW / MTOW */
                         <>
+                          <span title="Masse vive (vide)" style={{ color: 'var(--ink-3)' }}>
+                            {Math.round(ac.massEmptyKg)}
+                          </span>
+                          <span style={{ color: 'var(--ink-4)' }}>+</span>
+                          <span title="Passagers" style={{ color: 'var(--aero-blue)' }}>
+                            {Math.round(res.peopleMass)}
+                          </span>
+                          <span style={{ color: 'var(--ink-4)' }}>+</span>
+                          <span title="Bagages" style={{ color: 'var(--ink-2)' }}>
+                            {Math.round(res.bagMass)}
+                          </span>
+                          <span style={{ color: 'var(--ink-4)' }}>+</span>
+                          <span title="Carburant (kg)">{Math.round(res.fuelKg)}</span>
+                          <span style={{ color: 'var(--ink-3)', fontWeight: 400 }}>kg</span>
+                          <span style={{ color: 'var(--ink-3)' }}>=</span>
+                          <span style={{ color: towColor(res.tow, mtow), fontWeight: 700 }} title="TOW / MTOW">
+                            {Math.round(res.tow)}<span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>/{Math.round(mtow)}</span> kg
+                          </span>
+                          <span style={{ color: 'var(--ink-3)' }}>·</span>
+                          <span title="Carb. départ">{Math.round(fuelLoadL)} L</span>
                           <span style={{ color: 'var(--ink-4)' }}>→</span>
                           <span title="Brûlé">-{Math.round(res.burnL)} L</span>
+                          <span style={{ color: 'var(--ink-4)' }}>→</span>
+                          <span title="Restant" style={{ color: fuelLeftColor(res.fuelLeftL, model?.burnLh || 1), fontWeight: 700 }}>{Math.round(res.fuelLeftL)} L</span>
+                          <span style={{ color: 'var(--ink-3)' }}>·</span>
+                          <span style={{ color: 'var(--aero-red)', fontWeight: 700 }} title="Durée">{fmtHr(res.durMin)}</span>
+                        </>
+                      ) : (
+                        /* Mobile : compact */
+                        <>
+                          <span title="Carb. départ">{Math.round(fuelLoadL)} L</span>
+                          <span style={{ color: 'var(--ink-4)' }}>→</span>
+                          <span title="Restant" style={{ color: fuelLeftColor(res.fuelLeftL, model?.burnLh || 1), fontWeight: 700 }}>{Math.round(res.fuelLeftL)} L</span>
+                          <span style={{ color: 'var(--ink-3)' }}>·</span>
+                          <span style={{ color: 'var(--aero-red)', fontWeight: 700 }} title="Durée">{fmtHr(res.durMin)}</span>
                         </>
                       )}
-                      <span style={{ color: 'var(--ink-4)' }}>→</span>
-                      <span title="Restant" style={{ color: fuelLeftColor(res.fuelLeftL, model?.burnLh || 1), fontWeight: 700 }}>{Math.round(res.fuelLeftL)} L</span>
-                      <span style={{ color: 'var(--ink-3)' }}>·</span>
-                      <span style={{ color: 'var(--aero-red)', fontWeight: 700 }} title="Durée">{fmtHr(res.durMin)}</span>
                     </div>
                   </div>
                 );
