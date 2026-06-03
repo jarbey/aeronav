@@ -198,9 +198,7 @@ export function computeVoyage(variant: Variant, voyageAircraftIds: string[] = []
     const ad = lookup(icao);
     if (!ad) return;
     if (i > 0) taxLandingTotal += (ad.taxLandingEUR || 0) * voyageAcCount;
-    if (i > 0 && i < variant.route.length - 1) {
-      taxParkingTotal += (ad.taxParkingEUR || 0) * voyageAcCount;
-    }
+    if (i > 0) taxParkingTotal += (ad.taxParkingEUR || 0) * voyageAcCount;
   });
   return { legs, flightMin, stopMin, totalMin: flightMin + stopMin, taxLandingTotal, taxParkingTotal, taxTotalEUR: taxLandingTotal + taxParkingTotal };
 }
@@ -216,7 +214,7 @@ export function computeFinance(variant: Variant, voyageAircraftIds: string[] = [
   legs.forEach((leg, legIdx) => {
     const isLastLeg = legIdx === legs.length - 1;
     const destTaxLanding = leg.to.taxLandingEUR || 0;
-    const destTaxParking = isLastLeg ? 0 : (leg.to.taxParkingEUR || 0);
+    const destTaxParking = leg.to.taxParkingEUR || 0;
     Object.keys(leg.perAc).forEach(acId => {
       const ac = acById(acId);
       if (!ac) return;
