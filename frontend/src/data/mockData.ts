@@ -147,7 +147,7 @@ export function computeLeg(legIdx: number, variant: Variant, voyageAircraftIds: 
       return s + (eff?.weightKg || 0);
     }, 0);
     const bag = (bagsByLeg[legIdx] && bagsByLeg[legIdx][ac.id]) || { count: 0, unitKg: 0 };
-    const bagMass = bag.count * bag.unitKg;
+    const bagMass = bag.count * bag.unitKg + (bag.extraKg || 0);
     const fuelL = (fuelLoadL[legIdx] && fuelLoadL[legIdx][ac.id]) || 0;
     const fuelDensity = m.fuelType.includes('Jet') ? 0.84 : 0.72;
     const fuelKg = fuelL * fuelDensity;

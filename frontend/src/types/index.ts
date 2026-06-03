@@ -102,6 +102,7 @@ export interface CrewAssignment {
 export interface BagLoad {
   count: number;
   unitKg: number;
+  extraKg?: number;
 }
 
 export type CrewsByLeg = Record<string, CrewAssignment>[];

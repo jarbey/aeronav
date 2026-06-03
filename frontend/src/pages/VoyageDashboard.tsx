@@ -874,7 +874,9 @@ function AircraftLegCard({ ac, legIdx, legResult, onCrewEdit, onBagsEdit, onFuel
           style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }} title="Modifier les bagages">
           <i className="fa-solid fa-suitcase" style={{ color: 'var(--ink-3)', fontSize: 11 }}/>
           <span className="mono" style={{ fontSize: 11, fontWeight: 600 }}>
-            {p.bag.count}×{p.bag.unitKg}<span style={{ color: 'var(--ink-3)', fontWeight: 500 }}>kg</span> = <b>{p.bagMass}</b><span style={{ color: 'var(--ink-3)', fontSize: 9 }}>kg</span>
+            {p.bag.count}×{p.bag.unitKg}<span style={{ color: 'var(--ink-3)', fontWeight: 500 }}>kg</span>
+            {(p.bag.extraKg || 0) > 0 && <span style={{ color: 'var(--aero-amber)', fontWeight: 600 }}> +{p.bag.extraKg}kg</span>}
+            {' '}= <b>{p.bagMass}</b><span style={{ color: 'var(--ink-3)', fontSize: 9 }}>kg</span>
           </span>
           <i className="fa-solid fa-pen" style={{ fontSize: 8, color: 'var(--ink-3)' }}/>
         </button>
