@@ -52,6 +52,7 @@ const variantCreateSchema = z.object({
   bagsByLeg: z.array(z.record(z.object({
     count: z.number().int().nonnegative(),
     unitKg: z.number().nonnegative(),
+    extraKg: z.number().nonnegative().optional(),
   }))).default([]),
   personOverrides: z.record(z.object({
     weightKg: z.number().positive().optional(),
