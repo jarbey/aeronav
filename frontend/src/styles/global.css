@@ -584,8 +584,8 @@ input, select, textarea { font-family: inherit; color: inherit; }
   .topbar .brand .name { font-size: 13px; }
   .topbar .brand .logo { width: 22px; height: 22px; }
 
-  /* Tabs become icon-only on mobile */
-  .topbar .tabs { overflow-x: auto; scrollbar-width: none; }
+  /* Tabs become icon-only on mobile, and shrink/scroll so the user menu stays visible */
+  .topbar .tabs { flex: 1 1 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
   .topbar .tabs::-webkit-scrollbar { display: none; }
   .topbar .tabs button {
     padding: 0 12px;
@@ -594,7 +594,8 @@ input, select, textarea { font-family: inherit; color: inherit; }
   }
   .topbar .tabs button i { font-size: 14px !important; }
   .topbar .tabs button .num { display: none; }
-  .topbar .meta { display: none; }
+  .topbar .spacer { display: none; }
+  .topbar .meta { flex: none; gap: 8px; padding-left: 8px; }
 
   /* Tables scroll horizontally */
   .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
