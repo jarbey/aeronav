@@ -154,11 +154,26 @@ export async function aerodromesRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const { fuelSchedule: fsUp, ...adDataUp } = adData;
+
+      // Track when fuel / taxes / comment were last actually changed (for VAC display).
+      const now = new Date();
+      const fuelChanged =
+        (adData.fuel !== undefined && JSON.stringify(adData.fuel) !== JSON.stringify(existing.fuel)) ||
+        (fsUp !== undefined && JSON.stringify(fsUp ?? null) !== JSON.stringify(existing.fuelSchedule ?? null));
+      const taxChanged =
+        (adData.taxLanding !== undefined && adData.taxLanding !== existing.taxLanding) ||
+        (adData.taxParking !== undefined && adData.taxParking !== existing.taxParking);
+      const notesChanged =
+        adData.notes !== undefined && (adData.notes ?? "") !== (existing.notes ?? "");
+
       const updated = await prisma.aerodrome.update({
         where: { icao },
         data: {
           ...adDataUp,
           ...(fsUp !== undefined && { fuelSchedule: fsUp === null ? Prisma.DbNull : (fsUp as Prisma.InputJsonValue) }),
+          ...(fuelChanged && { fuelUpdatedAt: now }),
+          ...(taxChanged && { taxUpdatedAt: now }),
+          ...(notesChanged && { notesUpdatedAt: now }),
         },
         include: { runways: true },
       });

@@ -348,6 +348,7 @@ function VACSidebar({ ad }: { ad: Aerodrome }) {
                 })}
           </div>
         )}
+        {!editingFuel && <ModifiedAt at={ad.fuelUpdatedAt}/>}
       </div>
 
       {/* Taxes */}
@@ -384,6 +385,7 @@ function VACSidebar({ ad }: { ad: Aerodrome }) {
             </span>
           </div>
         )}
+        {!editingTax && <ModifiedAt at={ad.taxUpdatedAt}/>}
       </div>
 
       {/* Commentaire */}
@@ -407,11 +409,24 @@ function VACSidebar({ ad }: { ad: Aerodrome }) {
             style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: 12, width: '100%', boxSizing: 'border-box' }}
           />
         ) : note ? (
-          <p style={{ fontSize: 12, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>{note}</p>
+          <p style={{ fontSize: 12, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{note}</p>
         ) : (
           <span style={{ fontSize: 12, color: 'var(--ink-4)', fontStyle: 'italic' }}>Aucun commentaire</span>
         )}
+        {!editingNote && <ModifiedAt at={ad.notesUpdatedAt}/>}
       </div>
+    </div>
+  );
+}
+
+function ModifiedAt({ at }: { at?: string | null }) {
+  if (!at) return null;
+  const d = new Date(at);
+  if (isNaN(d.getTime())) return null;
+  return (
+    <div style={{ fontSize: 10, color: 'var(--ink-4)', fontStyle: 'italic', marginTop: 6 }}>
+      <i className="fa-regular fa-clock" style={{ marginRight: 4 }}/>
+      Modifié le {d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
     </div>
   );
 }

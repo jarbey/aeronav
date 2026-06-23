@@ -92,6 +92,9 @@ export interface Aerodrome {
   taxLandingEUR: number;
   taxParkingEUR: number;
   note: string;
+  fuelUpdatedAt?: string | null;
+  taxUpdatedAt?: string | null;
+  notesUpdatedAt?: string | null;
 }
 
 export interface CrewAssignment {

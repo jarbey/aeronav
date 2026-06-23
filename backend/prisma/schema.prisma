@@ -131,6 +131,9 @@ model Aerodrome {
   taxParking  Float   @default(0)
   notes       String?
   aeroclubIds String[]
+  fuelUpdatedAt  DateTime?
+  taxUpdatedAt   DateTime?
+  notesUpdatedAt DateTime?
   runways     Runway[]
 
   @@map("aerodromes")

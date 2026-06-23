@@ -25,7 +25,9 @@ function fromApi(a: ApiAerodrome): Aerodrome {
 }
 
 export function toApi(a: Partial<Aerodrome>): Partial<ApiAerodrome> {
-  const { coord, elevation, taxLandingEUR, taxParkingEUR, note, ...rest } = a;
+  // The *UpdatedAt timestamps are server-managed — never send them back.
+  const { coord, elevation, taxLandingEUR, taxParkingEUR, note, fuelUpdatedAt: _f, taxUpdatedAt: _t, notesUpdatedAt: _n, ...rest } = a;
+  void _f; void _t; void _n;
   return {
     ...rest,
     ...(coord !== undefined && { lngLat: coord }),
