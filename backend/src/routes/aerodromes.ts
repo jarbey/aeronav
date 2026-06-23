@@ -29,6 +29,7 @@ const aerodromeBodySchema = z.object({
   taxLanding: z.number().nonnegative().default(0),
   taxParking: z.number().nonnegative().default(0),
   notes: z.string().optional(),
+  vacUrl: z.string().url().nullable().optional(),
   runways: z.array(runwaySchema).default([]),
 });
 

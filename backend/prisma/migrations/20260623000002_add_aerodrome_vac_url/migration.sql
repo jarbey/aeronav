@@ -1,0 +1,1 @@
+ALTER TABLE "aerodromes" ADD COLUMN IF NOT EXISTS "vacUrl" TEXT;

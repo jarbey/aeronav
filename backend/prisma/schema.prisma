@@ -130,6 +130,7 @@ model Aerodrome {
   taxLanding  Float   @default(0)
   taxParking  Float   @default(0)
   notes       String?
+  vacUrl      String?
   aeroclubIds String[]
   fuelUpdatedAt  DateTime?
   taxUpdatedAt   DateTime?

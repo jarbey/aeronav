@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Aerodrome, FuelAvailability } from '../types';
 import { vacProxyUrl, useAerodromes, useUpdateAerodrome } from '../api/aerodromes';
+import { chartProvider, type ResolvedChart } from '../utils/charts';
 
 const AIRAC_REF = new Date("2025-01-23T00:00:00Z").getTime();
 const AIRAC_MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
@@ -34,6 +35,8 @@ export default function VacModal({ icao, onClose, onAddLeg, currentLegTo }: Prop
   const ad = aerodromes?.find(a => a.icao === icao);
   if (!ad) return null;
 
+  const chart = chartProvider(ad.icao, ad.vacUrl);
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()} style={{ width: 'min(1400px, 98vw)', height: '96vh' }}>
@@ -41,7 +44,9 @@ export default function VacModal({ icao, onClose, onAddLeg, currentLegTo }: Prop
           <h2>
             <span className="mono" style={{ marginRight: 8, color: '#ffcf52' }}>{ad.icao}</span>
             {ad.name}
-            <span style={{ fontSize: 11, marginLeft: 12, color: '#c4b88a', fontWeight: 400 }}>Carte VAC · Approche à vue</span>
+            <span style={{ fontSize: 11, marginLeft: 12, color: '#c4b88a', fontWeight: 400 }}>
+              {chart.isFrance ? 'Carte VAC · Approche à vue' : `${chart.label} · Carte d’aérodrome`}
+            </span>
           </h2>
           {onAddLeg && currentLegTo && (
             <button
@@ -58,7 +63,7 @@ export default function VacModal({ icao, onClose, onAddLeg, currentLegTo }: Prop
         <div className="modal-body" style={{ background: '#f1e7c8', padding: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: 16, flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, alignItems: 'stretch' }}>
             <div className="card" style={{ padding: 0, overflow: 'hidden', background: '#fbf6e7', display: 'flex', flexDirection: 'column' }}>
-              <VACChart ad={ad}/>
+              <VACChart ad={ad} chart={chart}/>
             </div>
             <VACSidebar ad={ad}/>
           </div>
@@ -94,6 +99,10 @@ const ATC_OPTIONS = ['Tour', 'Tour+Approche', 'AFIS', 'A/A', 'MIL', ''];
 function VACSidebar({ ad }: { ad: Aerodrome }) {
   const { mutate: updateAerodrome } = useUpdateAerodrome();
 
+  const chart = chartProvider(ad.icao, ad.vacUrl);
+  const chartHref = chart.isFrance ? SIA_VAC_DIRECT(ad.icao) : chart.url;
+  const chartLabel = chart.isFrance ? 'Carte VAC' : chart.label;
+
   const [editingInfo, setEditingInfo] = useState(false);
   const [editingFuel, setEditingFuel] = useState(false);
   const [editingTax, setEditingTax] = useState(false);
@@ -105,6 +114,7 @@ function VACSidebar({ ad }: { ad: Aerodrome }) {
     ppr: ad.ppr,
     atc: ad.atc ?? '',
     elevation: String(ad.elevation ?? ''),
+    vacUrl: ad.vacUrl ?? '',
   });
   const [runwaysDraft, setRunwaysDraft] = useState<RunwayDraft[]>(
     ad.runways.length > 0
@@ -138,6 +148,7 @@ function VACSidebar({ ad }: { ad: Aerodrome }) {
       ppr: infoDraft.ppr,
       atc: infoDraft.atc,
       elevation: isNaN(elevation) ? ad.elevation : elevation,
+      vacUrl: infoDraft.vacUrl.trim() || null,
       runways,
     });
     setEditingInfo(false);
@@ -191,7 +202,7 @@ function VACSidebar({ ad }: { ad: Aerodrome }) {
       <div className="card" style={{ padding: '12px 14px' }}>
         <SectionHeader title="Informations" editing={editingInfo}
           onEdit={() => {
-            setInfoDraft({ night: ad.night, ppr: ad.ppr, atc: ad.atc ?? '', elevation: String(ad.elevation ?? '') });
+            setInfoDraft({ night: ad.night, ppr: ad.ppr, atc: ad.atc ?? '', elevation: String(ad.elevation ?? ''), vacUrl: ad.vacUrl ?? '' });
             setRunwaysDraft(ad.runways.length > 0
               ? ad.runways.map(r => ({ qfu: r.qfu, lengthM: String(r.lengthM), surface: r.surface }))
               : [{ qfu: '', lengthM: '', surface: 'Revêtue' }]);
@@ -260,6 +271,18 @@ function VACSidebar({ ad }: { ad: Aerodrome }) {
                 </div>
               ))}
             </div>
+            {/* Lien carte VAC / AIP */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ color: 'var(--ink-3)' }}>Lien carte (VAC / AIP)</span>
+              <input className="input" type="url" placeholder="https://…" value={infoDraft.vacUrl}
+                onChange={e => patchInfo({ vacUrl: e.target.value })}
+                style={{ fontSize: 11, padding: '2px 6px', fontFamily: 'var(--font-mono)' }}/>
+              {!chart.isFrance && (
+                <span style={{ fontSize: 10, color: 'var(--ink-4)', fontStyle: 'italic' }}>
+                  Laisser vide pour utiliser le lien par défaut ({chart.label}).
+                </span>
+              )}
+            </div>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 6, columnGap: 10, fontSize: 12 }}>
@@ -283,6 +306,13 @@ function VACSidebar({ ad }: { ad: Aerodrome }) {
                 : <span className="chip" style={{ fontSize: 10 }}>Non autorisé</span>}
               {ad.ppr && <span className="chip warn" style={{ fontSize: 10 }}>PPR</span>}
             </span>
+            <span style={{ color: 'var(--ink-3)' }}>Carte</span>
+            {chartHref ? (
+              <a href={chartHref} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <i className="fa-solid fa-map" style={{ fontSize: 10 }}/> {chartLabel}
+              </a>
+            ) : <span style={{ color: 'var(--ink-4)' }}>—</span>}
           </div>
         )}
       </div>
@@ -431,8 +461,39 @@ function ModifiedAt({ at }: { at?: string | null }) {
   );
 }
 
-function VACChart({ ad }: { ad: Aerodrome }) {
+function VACChart({ ad, chart }: { ad: Aerodrome; chart: ResolvedChart }) {
   const [blocked, setBlocked] = useState(false);
+
+  // Outside France: the national AIP/VFR portal can't be embedded in an iframe,
+  // so we surface a clear external link instead of trying to render a PDF.
+  if (!chart.isFrance) {
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 32 }}>
+        <i className="fa-solid fa-map-location-dot" style={{ fontSize: 44, color: 'var(--aero-blue)', opacity: 0.6 }}/>
+        <div style={{ fontSize: 13, color: 'var(--ink-2)', textAlign: 'center', lineHeight: 1.6, maxWidth: 360 }}>
+          La carte d’aérodrome de <strong>{ad.icao}</strong> est publiée par le service
+          d’information aéronautique national.<br/>
+          <span style={{ color: 'var(--ink-3)', fontSize: 12 }}>{chart.label}</span>
+        </div>
+        {chart.url && (
+          <a
+            href={chart.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="chip ok"
+            style={{ textDecoration: 'none', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <i className="fa-solid fa-external-link-alt"/>
+            Ouvrir {chart.label} — {ad.icao}
+          </a>
+        )}
+        <span style={{ fontSize: 10, color: 'var(--ink-4)', fontStyle: 'italic', textAlign: 'center' }}>
+          Lien externe — fournisseur officiel ou agrégateur ChartFox
+        </span>
+      </div>
+    );
+  }
+
   const url = vacProxyUrl(ad.icao);
   const directUrl = SIA_VAC_DIRECT(ad.icao);
 
