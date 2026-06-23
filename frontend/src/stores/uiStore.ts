@@ -1,11 +1,13 @@
 import { create } from 'zustand';
-import type { AppTab, VoyageSubTab, EditorState, FormEditorState } from '../types';
+import type { EditorState, FormEditorState } from '../types';
 
 const LS_VOYAGE = 'aeronav.activeVoyageId';
 
+// Page-level navigation (tab / voyageSubTab / which voyage is open) now lives in
+// the URL via react-router. This store keeps only the transient UI overlays, the
+// selected leg, and a memory of the last opened voyage (so the "Voyage" tab and
+// reloads can return to it).
 interface UIStore {
-  tab: AppTab;
-  voyageSubTab: VoyageSubTab;
   activeVoyageId: string | null;
   selectedLegIdx: number;
   editor: EditorState | null;
@@ -16,8 +18,6 @@ interface UIStore {
   vacIcao: string | null;
   userMenuOpen: boolean;
 
-  setTab: (tab: AppTab) => void;
-  setVoyageSubTab: (sub: VoyageSubTab) => void;
   setActiveVoyageId: (id: string | null) => void;
   setSelectedLegIdx: (idx: number) => void;
   setEditor: (e: EditorState | null) => void;
@@ -30,8 +30,6 @@ interface UIStore {
 }
 
 export const useUIStore = create<UIStore>((set) => ({
-  tab: 'voyages',
-  voyageSubTab: 'map',
   activeVoyageId: (() => {
     try { return localStorage.getItem(LS_VOYAGE); } catch { return null; }
   })(),
@@ -44,8 +42,6 @@ export const useUIStore = create<UIStore>((set) => ({
   vacIcao: null,
   userMenuOpen: false,
 
-  setTab: (tab) => set({ tab }),
-  setVoyageSubTab: (voyageSubTab) => set({ voyageSubTab }),
   setActiveVoyageId: (id) => {
     try { if (id) localStorage.setItem(LS_VOYAGE, id); else localStorage.removeItem(LS_VOYAGE); } catch { /* empty */ }
     set({ activeVoyageId: id });

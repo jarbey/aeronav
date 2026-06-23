@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useAuthStore } from './stores/authStore';
 import { useUIStore } from './stores/uiStore';
+import { useOverlayBackClose } from './hooks/useOverlayBackClose';
 import { useVoyages } from './api/voyages';
 import { usePeople } from './api/people';
 import { useAircraft, useAircraftModels } from './api/aircraft';
@@ -14,7 +16,7 @@ import {
 import { autoAssign } from './data/autoAssign';
 import { apiFetch } from './api/client';
 import { toApi as aerodromeToApi, useAerodromes } from './api/aerodromes';
-import type { Voyage, Variant, Person, Aircraft as AircraftType, Aerodrome, PersonOverride, CrewAssignment, BagLoad } from './types';
+import type { Voyage, Variant, Person, Aircraft as AircraftType, Aerodrome, PersonOverride, CrewAssignment, BagLoad, AppTab, VoyageSubTab } from './types';
 
 import Login from './pages/Login';
 import TopBar from './components/TopBar';
@@ -57,9 +59,7 @@ export default function App() {
 
 function AppShell({ currentUser, onLogout }: { currentUser: import('./types').User; onLogout: () => void }) {
   const {
-    tab, setTab,
-    voyageSubTab, setVoyageSubTab,
-    activeVoyageId, setActiveVoyageId,
+    activeVoyageId: storeActiveVoyageId, setActiveVoyageId: setStoreActiveVoyageId,
     selectedLegIdx, setSelectedLegIdx,
     editor, setEditor,
     formEditor, setFormEditor,
@@ -69,6 +69,55 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
     vacIcao, setVacIcao,
     userMenuOpen, setUserMenuOpen,
   } = useUIStore();
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // ── URL ⇆ navigation state ──────────────────────────────────────────────────
+  // The URL is the source of truth for the current page, sub-tab and open voyage.
+  const seg = location.pathname.split('/').filter(Boolean);
+  const SUBS: VoyageSubTab[] = ['map', 'people', 'finance', 'recap'];
+  const tab: AppTab =
+    seg[0] === 'voyages' ? (seg[1] ? 'voyage' : 'voyages')
+    : seg[0] === 'aircraft' ? 'aircraft'
+    : seg[0] === 'aerodromes' ? 'aerodromes'
+    : seg[0] === 'team' ? 'team'
+    : 'voyages';
+  const urlVoyageId = seg[0] === 'voyages' && seg[1] ? seg[1] : null;
+  const voyageSubTab: VoyageSubTab = urlVoyageId && SUBS.includes(seg[2] as VoyageSubTab) ? (seg[2] as VoyageSubTab) : 'map';
+  const activeVoyageId = urlVoyageId ?? storeActiveVoyageId;
+
+  // Remember the voyage carried by the URL so the "Voyage" tab can return to it.
+  useEffect(() => {
+    if (urlVoyageId && urlVoyageId !== storeActiveVoyageId) setStoreActiveVoyageId(urlVoyageId);
+  }, [urlVoyageId]);
+
+  // Send unknown / root paths back to the voyages list.
+  useEffect(() => {
+    const known = ['voyages', 'aircraft', 'aerodromes', 'team'];
+    if (!known.includes(seg[0])) navigate('/voyages', { replace: true });
+  }, [location.pathname]);
+
+  const pathForTab = (t: AppTab): string => {
+    switch (t) {
+      case 'voyage': return activeVoyageId ? `/voyages/${activeVoyageId}/${voyageSubTab}` : '/voyages';
+      case 'aircraft': return '/aircraft';
+      case 'aerodromes': return '/aerodromes';
+      case 'team': return '/team';
+      default: return '/voyages';
+    }
+  };
+  const setTab = (t: AppTab) => navigate(pathForTab(t));
+  const setVoyageSubTab = (s: VoyageSubTab) => { if (activeVoyageId) navigate(`/voyages/${activeVoyageId}/${s}`); };
+  const openVoyage = (id: string, sub: VoyageSubTab = 'map') => navigate(`/voyages/${id}/${sub}`);
+
+  // Browser "Back" closes an open overlay before navigating the page.
+  const overlayOpen = !!(editor || formEditor || shareDialogId || settingsDialogId || newVoyageOpen || vacIcao || userMenuOpen);
+  const closeAllOverlays = () => {
+    setEditor(null); setFormEditor(null); setShareDialogId(null);
+    setSettingsDialogId(null); setNewVoyageOpen(false); setVacIcao(null); setUserMenuOpen(false);
+  };
+  useOverlayBackClose(overlayOpen, closeAllOverlays);
 
   const queryClient = useQueryClient();
 
@@ -110,9 +159,14 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
       })(),
     }));
     bump();
-    // If the current activeVoyageId is no longer in the new data, reset to first
+    // If the current activeVoyageId is no longer in the new data, reset to first.
     if (!activeVoyageId || !VOYAGES.find(v => v.id === activeVoyageId)) {
-      setActiveVoyageId(VOYAGES[0]?.id || null);
+      const fallback = VOYAGES[0]?.id || null;
+      setStoreActiveVoyageId(fallback);
+      // If the URL points at a voyage that no longer exists, leave the dead route.
+      if (urlVoyageId && !VOYAGES.find(v => v.id === urlVoyageId)) {
+        navigate(fallback ? `/voyages/${fallback}/map` : '/voyages', { replace: true });
+      }
     }
   }, [apiVoyages]);
 
@@ -218,10 +272,10 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
     };
   }, [voyage, allAerodromes, version]);
 
-  // Initialise activeVoyageId if not set
+  // Seed the "last voyage" memory if not set (so the Voyage tab has a target).
   useEffect(() => {
     if (!activeVoyageId && visibleVoyages.length > 0) {
-      setActiveVoyageId(visibleVoyages[0].id);
+      setStoreActiveVoyageId(visibleVoyages[0].id);
     }
   }, []);
 
@@ -675,8 +729,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
   async function createVoyage(newV: Voyage) {
     // Optimistic local insert for instant UI response
     VOYAGES.unshift(newV);
-    setActiveVoyageId(newV.id);
-    setTab('voyage');
+    openVoyage(newV.id);
     bump();
 
     try {
@@ -716,7 +769,8 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
           variants: [{ ...v0, id: savedVariant.id }],
         };
       }
-      setActiveVoyageId(saved.id);
+      // Swap the temp id for the real one in the URL without adding a history entry.
+      navigate(`/voyages/${saved.id}/map`, { replace: true });
       queryClient.invalidateQueries({ queryKey: ['voyages'] });
       bump();
     } catch (e) {
@@ -743,8 +797,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
       sharedWith: [],
     };
     VOYAGES.unshift(duplicate);
-    setActiveVoyageId(tempId);
-    setTab('voyage');
+    openVoyage(tempId);
     bump();
     try {
       const saved = await apiFetch<{ id: string }>('/voyages', {
@@ -774,7 +827,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
       if (idx >= 0) {
         VOYAGES[idx] = { ...duplicate, id: saved.id, activeVariantId: firstVariantId };
       }
-      setActiveVoyageId(saved.id);
+      navigate(`/voyages/${saved.id}/map`, { replace: true });
       queryClient.invalidateQueries({ queryKey: ['voyages'] });
       bump();
     } catch (e) {
@@ -790,10 +843,10 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
     if (idx < 0) return;
     // Optimistic local removal for an instant UI response…
     const [removed] = VOYAGES.splice(idx, 1);
-    if (id === activeVoyageId) {
-      const remaining = voyagesForUser(currentUser.id);
-      setActiveVoyageId(remaining[0]?.id || null);
-      setTab('voyages');
+    const wasActive = id === activeVoyageId;
+    if (wasActive) {
+      setStoreActiveVoyageId(voyagesForUser(currentUser.id)[0]?.id || null);
+      navigate('/voyages');
     }
     bump();
 
@@ -804,7 +857,8 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
     } catch (e) {
       console.error('deleteVoyageById: backend delete failed', e);
       VOYAGES.splice(Math.min(idx, VOYAGES.length), 0, removed);
-      setActiveVoyageId(id);
+      setStoreActiveVoyageId(id);
+      if (wasActive) openVoyage(id);
       bump();
       alert('Impossible de supprimer le voyage. Vérifiez votre connexion et réessayez.');
     }
@@ -886,7 +940,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
           <VoyagesList
             currentUser={currentUser}
             activeVoyageId={activeVoyageId}
-            onOpenVoyage={(id) => { setActiveVoyageId(id); setTab('voyage'); }}
+            onOpenVoyage={(id) => openVoyage(id)}
             onShare={(v) => setShareDialogId(v.id)}
             onDuplicate={duplicateVoyage}
             onStatusChange={(id, status) => saveVoyageSettings(id, { status })}
