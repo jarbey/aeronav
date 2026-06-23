@@ -29,7 +29,8 @@ export default function VoyageSettingsDialog({ voyage, currentUser, onClose, onS
     const basePatch: Partial<Voyage> = {
       title: title.trim() || voyage.title,
       date,
-      status,
+      // Status is owner-only on the backend — don't send it for non-owners.
+      ...(isOwner ? { status } : {}),
     };
     // Always include aircraftIds — save in one call so syncVariantCrewsToAircraft runs
     onSave(voyage.id, { ...basePatch, aircraftIds });
@@ -55,11 +56,10 @@ export default function VoyageSettingsDialog({ voyage, currentUser, onClose, onS
             </div>
             <div className="field">
               <label>Statut</label>
-              <select className="select" value={status} onChange={e => setStatus(e.target.value as Voyage['status'])}>
+              <select className="select" value={status} disabled={!isOwner} title={isOwner ? undefined : 'Seul le propriétaire peut changer le statut'} onChange={e => setStatus(e.target.value as Voyage['status'])}>
                 <option value="draft">Brouillon</option>
-                <option value="planning">En préparation</option>
-                <option value="ongoing">En cours</option>
-                <option value="completed">Terminé</option>
+                <option value="validated">Validé</option>
+                <option value="archived">Archivé</option>
               </select>
             </div>
           </div>

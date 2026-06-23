@@ -317,7 +317,7 @@ describe('PATCH /api/voyages/:id', () => {
       method: 'PATCH',
       url: '/api/voyages/voy1',
       headers: { Authorization: authHeader },
-      payload: { status: 'planning' },
+      payload: { status: 'validated' },
     });
 
     expect(res.statusCode).toBe(403);

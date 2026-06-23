@@ -785,16 +785,29 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
       alert('Impossible de dupliquer le voyage.');
     }
   }
-  function deleteVoyageById(id: string) {
+  async function deleteVoyageById(id: string) {
     const idx = VOYAGES.findIndex(v => v.id === id);
     if (idx < 0) return;
-    VOYAGES.splice(idx, 1);
+    // Optimistic local removal for an instant UI response…
+    const [removed] = VOYAGES.splice(idx, 1);
     if (id === activeVoyageId) {
       const remaining = voyagesForUser(currentUser.id);
       setActiveVoyageId(remaining[0]?.id || null);
       setTab('voyages');
     }
     bump();
+
+    // …then persist to the backend (owner-only DELETE). On failure, restore.
+    try {
+      await apiFetch(`/voyages/${id}`, { method: 'DELETE' });
+      queryClient.invalidateQueries({ queryKey: ['voyages'] });
+    } catch (e) {
+      console.error('deleteVoyageById: backend delete failed', e);
+      VOYAGES.splice(Math.min(idx, VOYAGES.length), 0, removed);
+      setActiveVoyageId(id);
+      bump();
+      alert('Impossible de supprimer le voyage. Vérifiez votre connexion et réessayez.');
+    }
   }
   function syncVariantCrewsToAircraft(va: Variant, aircraftIds: string[]): Variant {
     const numLegs = va.route.length - 1;
@@ -876,6 +889,7 @@ function AppShell({ currentUser, onLogout }: { currentUser: import('./types').Us
             onOpenVoyage={(id) => { setActiveVoyageId(id); setTab('voyage'); }}
             onShare={(v) => setShareDialogId(v.id)}
             onDuplicate={duplicateVoyage}
+            onStatusChange={(id, status) => saveVoyageSettings(id, { status })}
             onNew={() => setNewVoyageOpen(true)}
             version={version}
           />

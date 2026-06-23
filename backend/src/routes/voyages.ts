@@ -22,13 +22,13 @@ function getDbUser(request: Parameters<typeof requireAuth>[0]): AuthedUser {
 const voyageCreateSchema = z.object({
   title: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
-  status: z.enum(["draft", "planning", "ongoing", "completed"]).default("draft"),
+  status: z.enum(["draft", "validated", "archived"]).default("draft"),
 });
 
 const voyageUpdateSchema = z.object({
   title: z.string().min(1).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  status: z.enum(["draft", "planning", "ongoing", "completed"]).optional(),
+  status: z.enum(["draft", "validated", "archived"]).optional(),
   sharedWith: z.array(z.string()).optional(),
   activeVariantId: z.string().nullable().optional(),
   aircraftIds: z.array(z.string()).optional(),

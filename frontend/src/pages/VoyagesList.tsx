@@ -9,11 +9,13 @@ import ShareDialog from '../components/ShareDialog';
 import NewVoyageDialog from '../components/NewVoyageDialog';
 
 const STATUS_META: Record<string, { label: string; color: string; icon: string }> = {
-  draft:     { label: 'Brouillon',       color: 'var(--ink-3)',       icon: 'fa-pencil' },
-  planning:  { label: 'En préparation',  color: 'var(--aero-blue)',   icon: 'fa-clipboard-list' },
-  ongoing:   { label: 'En cours',        color: 'var(--aero-amber)',  icon: 'fa-plane-departure' },
-  completed: { label: 'Terminé',         color: 'var(--aero-green-2)',icon: 'fa-check' },
+  draft:     { label: 'Brouillon', color: 'var(--ink-3)',        icon: 'fa-pencil' },
+  validated: { label: 'Validé',    color: 'var(--aero-green-2)', icon: 'fa-circle-check' },
+  archived:  { label: 'Archivé',   color: 'var(--ink-2)',        icon: 'fa-box-archive' },
 };
+
+// Workflow order: Brouillon → Validé → Archivé
+const STATUS_ORDER: Voyage['status'][] = ['draft', 'validated', 'archived'];
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -25,11 +27,12 @@ interface VoyagesListProps {
   onOpenVoyage: (id: string) => void;
   onShare: (v: Voyage) => void;
   onDuplicate: (id: string, newTitle: string) => void;
+  onStatusChange: (id: string, status: Voyage['status']) => void;
   onNew: () => void;
   version?: number;
 }
 
-export default function VoyagesList({ currentUser, activeVoyageId, onOpenVoyage, onShare, onDuplicate, onNew, version }: VoyagesListProps) {
+export default function VoyagesList({ currentUser, activeVoyageId, onOpenVoyage, onShare, onDuplicate, onStatusChange, onNew, version }: VoyagesListProps) {
   const [filter, setFilter] = useState<'all' | 'mine' | 'shared'>('all');
   const [q, setQ] = useState('');
   void version;
@@ -42,7 +45,7 @@ export default function VoyagesList({ currentUser, activeVoyageId, onOpenVoyage,
     return true;
   });
 
-  const order: Record<string, number> = { ongoing: 0, planning: 1, completed: 2, draft: 3 };
+  const order: Record<string, number> = { validated: 0, draft: 1, archived: 2 };
   rows = rows.slice().sort((a, b) => (order[a.status] - order[b.status]) || (new Date(b.date).getTime() - new Date(a.date).getTime()));
 
   return (
@@ -67,6 +70,7 @@ export default function VoyagesList({ currentUser, activeVoyageId, onOpenVoyage,
             onOpen={() => onOpenVoyage(v.id)}
             onShare={() => onShare(v)}
             onDuplicate={(newTitle) => onDuplicate(v.id, newTitle)}
+            onStatusChange={(status) => onStatusChange(v.id, status)}
           />
         ))}
         {rows.length === 0 && (
@@ -80,13 +84,15 @@ export default function VoyagesList({ currentUser, activeVoyageId, onOpenVoyage,
   );
 }
 
-function VoyageCard({ voyage, currentUser, isActive, onOpen, onShare, onDuplicate }: {
+function VoyageCard({ voyage, currentUser, isActive, onOpen, onShare, onDuplicate, onStatusChange }: {
   voyage: Voyage; currentUser: User; isActive: boolean;
   onOpen: () => void; onShare: () => void;
   onDuplicate: (newTitle: string) => void;
+  onStatusChange: (status: Voyage['status']) => void;
 }) {
   const [duplicating, setDuplicating] = useState(false);
   const [dupTitle, setDupTitle] = useState('');
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const meta = STATUS_META[voyage.status] || STATUS_META.draft;
   const owner = userById(voyage.ownerId);
   const isOwner = voyage.ownerId === currentUser.id;
@@ -110,9 +116,39 @@ function VoyageCard({ voyage, currentUser, isActive, onOpen, onShare, onDuplicat
         borderBottom: '1px solid var(--hairline-soft)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className="chip" style={{ background: meta.color, color: '#fff', border: '0', fontSize: 10 }}>
-            <i className={`fa-solid ${meta.icon}`} style={{ marginRight: 3 }}/> {meta.label}
-          </span>
+          <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+            <button
+              className="chip"
+              disabled={!isOwner}
+              title={isOwner ? 'Changer le statut' : undefined}
+              onClick={() => { if (isOwner) setStatusMenuOpen(o => !o); }}
+              style={{ background: meta.color, color: '#fff', border: 0, fontSize: 10, font: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 3, cursor: isOwner ? 'pointer' : 'default' }}>
+              <i className={`fa-solid ${meta.icon}`}/> {meta.label}
+              {isOwner && <i className="fa-solid fa-chevron-down" style={{ fontSize: 8, marginLeft: 2, opacity: 0.85 }}/>}
+            </button>
+            {statusMenuOpen && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setStatusMenuOpen(false)}/>
+                <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 41, background: 'var(--surface)', border: '1px solid var(--hairline)', borderRadius: 6, boxShadow: '0 8px 24px -8px rgba(0,0,0,0.3)', overflow: 'hidden', minWidth: 150 }}>
+                  {STATUS_ORDER.map(s => {
+                    const m = STATUS_META[s];
+                    const active = s === voyage.status;
+                    return (
+                      <button key={s} type="button"
+                        onClick={() => { setStatusMenuOpen(false); if (s !== voyage.status) onStatusChange(s); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', border: 0, background: active ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', fontSize: 12, color: 'var(--ink)', textAlign: 'left' }}>
+                        <span style={{ width: 18, height: 18, borderRadius: '50%', background: m.color, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, flexShrink: 0 }}>
+                          <i className={`fa-solid ${m.icon}`}/>
+                        </span>
+                        {m.label}
+                        {active && <i className="fa-solid fa-check" style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--ink-3)' }}/>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
           {isActive && <span className="chip info" style={{ fontSize: 10 }}>actif</span>}
           <div style={{ flex: 1 }}/>
           <span style={{ fontSize: 11, color: 'var(--ink-3)' }} className="mono">{fmtDate(voyage.date)}</span>

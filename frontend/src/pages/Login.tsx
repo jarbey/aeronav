@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { User } from '../types';
-import { LS_TOKEN } from '../stores/authStore';
+import { LS_TOKEN, useAuthStore } from '../stores/authStore';
+import { useIsMobile } from '../hooks/useBreakpoint';
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || '/api';
 
@@ -22,6 +23,9 @@ interface LoginProps {
 }
 
 export default function Login({ onLogin }: LoginProps) {
+  const isMobile = useIsMobile();
+  const sessionExpired = useAuthStore(s => s.sessionExpired);
+
   async function loginWithProvider(provider: string) {
     // OAuth not implemented yet — show email login
     console.warn('OAuth not configured for provider:', provider);
@@ -30,8 +34,9 @@ export default function Login({ onLogin }: LoginProps) {
   return (
     <div style={{
       position: 'fixed', inset: 0, display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
       background: 'radial-gradient(ellipse at top, #1a3556 0%, #0b2240 35%, #061629 100%)',
-      color: '#f3ecd6', overflow: 'hidden',
+      color: '#f3ecd6', overflow: isMobile ? 'auto' : 'hidden',
     }}>
       {/* Background atmosphere — sketched route lines */}
       <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.06 }} viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
@@ -51,9 +56,9 @@ export default function Login({ onLogin }: LoginProps) {
       </svg>
 
       {/* Left brand panel */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 8% 0 8%', position: 'relative', zIndex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
-          <svg width="56" height="56" viewBox="0 0 40 40">
+      <div style={{ flex: isMobile ? 'none' : 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: isMobile ? '40px 28px 12px' : '0 8% 0 8%', position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: isMobile ? 20 : 28 }}>
+          <svg width={isMobile ? 44 : 56} height={isMobile ? 44 : 56} viewBox="0 0 40 40">
             <circle cx="20" cy="20" r="18" stroke="#ffcf52" strokeWidth="1.5" fill="none" opacity="0.4"/>
             <circle cx="20" cy="20" r="13" stroke="#ffcf52" strokeWidth="0.8" fill="none" opacity="0.6"/>
             <path d="M20 5 L24 22 L20 28 L16 22 Z" fill="#ffcf52"/>
@@ -65,13 +70,13 @@ export default function Login({ onLogin }: LoginProps) {
             <div style={{ fontSize: 12, color: '#c4b88a', letterSpacing: '0.18em', textTransform: 'uppercase' }}>Voyage Planner</div>
           </div>
         </div>
-        <h1 style={{ fontSize: 42, fontWeight: 600, lineHeight: 1.15, margin: 0, marginBottom: 16, maxWidth: 540 }}>
+        <h1 style={{ fontSize: isMobile ? 28 : 42, fontWeight: 600, lineHeight: 1.15, margin: 0, marginBottom: isMobile ? 12 : 16, maxWidth: 540 }}>
           Planifiez vos voyages en formation, en toute simplicité.
         </h1>
-        <p style={{ fontSize: 15, color: '#c4b88a', maxWidth: 480, lineHeight: 1.5, margin: 0, marginBottom: 32 }}>
+        <p style={{ fontSize: isMobile ? 13.5 : 15, color: '#c4b88a', maxWidth: 480, lineHeight: 1.5, margin: 0, marginBottom: isMobile ? 20 : 32 }}>
           Carburant, masse, équipages, taxes d'aérodrome, finances : tout est calculé pour chaque branche, sur toute la flotte de votre aéroclub.
         </p>
-        <div style={{ display: 'flex', gap: 18, fontSize: 12, color: '#8c8569', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: isMobile ? 12 : 18, fontSize: 12, color: '#8c8569', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
           <span><i className="fa-solid fa-route" style={{ marginRight: 6, color: '#ffcf52' }}/> Multi-avions</span>
           <span><i className="fa-solid fa-map" style={{ marginRight: 6, color: '#ffcf52' }}/> Cartes VAC</span>
           <span><i className="fa-solid fa-coins" style={{ marginRight: 6, color: '#ffcf52' }}/> Finances</span>
@@ -79,14 +84,25 @@ export default function Login({ onLogin }: LoginProps) {
       </div>
 
       {/* Right login card */}
-      <div style={{ width: 480, padding: '0 56px', display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
+      <div style={{ width: isMobile ? '100%' : 480, boxSizing: 'border-box', padding: isMobile ? '0 20px 40px' : '0 56px', display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
         <div style={{
           background: 'rgba(255,253,245,0.97)',
           color: 'var(--ink)',
           borderRadius: 12,
-          padding: '36px 28px',
+          padding: isMobile ? '28px 20px' : '36px 28px',
           boxShadow: '0 30px 80px -20px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,207,82,0.15)',
         }}>
+          {sessionExpired && (
+            <div style={{
+              marginBottom: 18, padding: '10px 12px',
+              background: '#fdecea', border: '1px solid #f1b0aa', borderRadius: 8,
+              fontSize: 12, color: '#8a2018', display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <i className="fa-solid fa-arrow-right-from-bracket"/>
+              Votre session a expiré. Veuillez vous reconnecter.
+            </div>
+          )}
+
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
             <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6 }}>Connexion</div>
             <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Choisissez votre méthode d'authentification</div>

@@ -330,7 +330,7 @@ const VOYAGES: VoyageSeed[] = [
     aeroclubId: "ac-nantes",
     ownerId: "u1",
     sharedWith: ["u2","u3","u4","u5"],
-    status: "planning",
+    status: "validated",
     activeVariantId: "var-A-nantes-propriano",
     aircraftIds: ["F-GAAA", "F-GBBB", "F-GCCC", "F-GDDD"],
     variants: [
@@ -382,7 +382,7 @@ const VOYAGES: VoyageSeed[] = [
     aeroclubId: "ac-nantes",
     ownerId: "u2",
     sharedWith: ["u1","u3"],
-    status: "planning",
+    status: "validated",
     activeVariantId: "var-A-bretagne",
     aircraftIds: ["F-GAAA", "F-GCCC"],
     variants: [{
@@ -410,7 +410,7 @@ const VOYAGES: VoyageSeed[] = [
     aeroclubId: "ac-nantes",
     ownerId: "u4",
     sharedWith: ["u1"],
-    status: "completed",
+    status: "archived",
     activeVariantId: "var-A-ppl",
     aircraftIds: ["F-GCCC"],
     variants: [{

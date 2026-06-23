@@ -140,7 +140,7 @@ export interface Voyage {
   aeroclubId: string;
   ownerId: string;
   sharedWith: string[];
-  status: 'draft' | 'planning' | 'ongoing' | 'completed';
+  status: 'draft' | 'validated' | 'archived';
   activeVariantId: string;
   variants: Variant[];
   aircraftIds: string[];
