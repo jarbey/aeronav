@@ -693,6 +693,10 @@ function LegDetail({ leg, legIdx, variant, voyagePeopleIds, onTaxiChange, onAltC
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 2px' }}>
         <div className="section-title">Équipages · Calculs <span className="badge">{Object.keys(leg.perAc).length} avions</span></div>
+        <div style={{ flex: 1 }}/>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: 'var(--aero-amber)', background: '#fff7df', border: '1px solid #e6cf83', borderRadius: 4, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+          <i className="fa-solid fa-triangle-exclamation"/> Vérifiez centrage
+        </span>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

@@ -173,7 +173,6 @@ function VariantSection({ variantIdx, variant, computed, aircraftIds, compact }:
                     </span>
                   )}
                   <BadgeInfo icon="fa-route" label={`${Math.round(leg.distance)} NM`}/>
-                  <BadgeInfo icon="fa-compass" label={`${Math.round(leg.bearing)}°`}/>
                   {altFt != null && <BadgeInfo icon="fa-mountain" label={`FL${Math.round(altFt / 100)}`}/>}
                 </div>
               </div>

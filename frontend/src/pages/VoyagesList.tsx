@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Voyage, User } from '../types';
 import {
-  voyagesForUser, userById, aeroclubById, activeVariant,
+  voyagesForUser, userById,
   computeVoyage, computeFinance, fmtHr,
 } from '../data/mockData';
 import { UserAvatar } from '../components/UserAvatar';
@@ -97,10 +97,19 @@ function VoyageCard({ voyage, currentUser, isActive, onOpen, onShare, onDuplicat
   const owner = userById(voyage.ownerId);
   const isOwner = voyage.ownerId === currentUser.id;
   const sharedUsers = (voyage.sharedWith || []).map(id => userById(id)).filter(Boolean) as NonNullable<ReturnType<typeof userById>>[];
-  const variant = activeVariant(voyage);
-  const computed = computeVoyage(variant);
-  const finance = computeFinance(variant);
-  const totalNM = computed.legs.reduce((s, l) => s + l.distance, 0);
+  // Totals are summed across ALL trajets (variants), like the Récapitulatif and Finance tab.
+  const variants = voyage.variants || [];
+  const allComputed = variants.map(va => computeVoyage(va, voyage.aircraftIds || []));
+  const allFinance = variants.map(va => computeFinance(va, voyage.aircraftIds || []));
+  const totalBranches = allComputed.reduce((s, c) => s + c.legs.length, 0);
+  const totalNM = allComputed.reduce((s, c) => s + c.legs.reduce((a, l) => a + l.distance, 0), 0);
+  const totalMin = allComputed.reduce((s, c) => s + c.totalMin, 0);
+  const totalCost = allFinance.reduce((s, f) => s + f.totals.total, 0);
+  // Full itinerary across every trajet, collapsing shared junctions between them.
+  const fullRoute: string[] = [];
+  variants.forEach(va => (va.route || []).forEach(icao => {
+    if (fullRoute[fullRoute.length - 1] !== icao) fullRoute.push(icao);
+  }));
 
   return (
     <div className="card" style={{
@@ -155,20 +164,20 @@ function VoyageCard({ voyage, currentUser, isActive, onOpen, onShare, onDuplicat
         </div>
         <div style={{ fontSize: 15, fontWeight: 600, marginTop: 6, lineHeight: 1.25 }}>{voyage.title}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: 11, color: 'var(--ink-3)' }}>
-          {variant.route.map((icao, i) => (
+          {fullRoute.map((icao, i) => (
             <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <span className="mono" style={{ fontWeight: 600, color: 'var(--ink-2)' }}>{icao}</span>
-              {i < variant.route.length - 1 && <i className="fa-solid fa-arrow-right" style={{ fontSize: 8 }}/>}
+              {i < fullRoute.length - 1 && <i className="fa-solid fa-arrow-right" style={{ fontSize: 8 }}/>}
             </span>
           ))}
         </div>
       </div>
 
       <div style={{ padding: '10px 14px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-        <StatCell label="Branches" value={String(computed.legs.length)}/>
+        <StatCell label="Branches" value={String(totalBranches)}/>
         <StatCell label="Distance" value={totalNM.toFixed(0)} unit="NM"/>
-        <StatCell label="Durée" value={fmtHr(computed.totalMin)}/>
-        <StatCell label="Coût" value={String(Math.round(finance.totals.total))} unit="€" highlight/>
+        <StatCell label="Durée" value={fmtHr(totalMin)}/>
+        <StatCell label="Coût" value={String(Math.round(totalCost))} unit="€" highlight/>
       </div>
 
       <div style={{
